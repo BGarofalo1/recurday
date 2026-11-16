@@ -1,6 +1,6 @@
 # Recurday
 
-A free, no-install web app for a family's own special traditions — away from the major holidays. Text a link, add photos of the day you keep, and come back next year to rewatch as the kids grow.
+A free web app for a family's own special traditions — away from the major holidays. Text a link, add photos of the day you keep, and come back next year to rewatch as the kids grow.
 
 Live: [https://recurday.bgarofalo1.workers.dev](https://recurday.bgarofalo1.workers.dev)
 
@@ -9,7 +9,7 @@ The code is open source. Family photos, videos, and private links are not. Those
 ## What it does
 
 - Create a tradition (a name, when it happens, and how you do it)
-- Text an unguessable family link — no account, no app
+- Text an unguessable family link — no account needed. You can also add Recurday to your phone's home screen
 - Add photos for that year (shrunk on the phone, about 2 MB each). Video coming soon.
 - Rewatch year by year
 - Optionally invite one other family with a revocable link. They can look, and they can tap **Start this tradition too**, which copies the practice, not the photos.
@@ -22,6 +22,17 @@ Recurday is built so families can share a practice without slipping into rivalry
 - Links are private and unguessable; `robots` is set to `noindex`
 - Link previews use a generic image, never a family's photos
 - A share is an invitation you can stop. Another family gets the practice, not your media
+
+
+## Add it to your home screen
+
+Recurday is a Progressive Web App. It uses a small service worker that caches only the public app shell (the home page, styles, and the offline message) so it opens quickly. Family photos, videos, and tradition pages are never cached on the device.
+
+**On iPhone:** open [Recurday](https://recurday.bgarofalo1.workers.dev) in Safari, tap the Share button (the square with an arrow), then **Add to Home Screen**.
+
+**On Android:** open Recurday in Chrome. When you see the prompt, tap **Add**. Or open the Chrome menu and choose **Add to Home screen**.
+
+Icons and the share image are generated locally by `python3 scripts/generate-brand.py`.
 
 ## Run it locally
 

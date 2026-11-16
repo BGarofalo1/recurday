@@ -46,6 +46,26 @@ async function handle(request, env) {
   if (path.startsWith("/a/")) return traditionPage(request, env, url, "admin");
   if (path.startsWith("/s/")) return traditionPage(request, env, url, "share");
 
+  if (path === "/sw.js") {
+    return serveAsset(request, env, "/sw.js", {
+      "content-type": "text/javascript; charset=utf-8",
+      "cache-control": "no-cache",
+      "Service-Worker-Allowed": "/",
+    });
+  }
+
+  if (path === "/manifest.webmanifest") {
+    return serveAsset(request, env, "/manifest.webmanifest", {
+      "content-type": "application/manifest+json; charset=utf-8",
+    });
+  }
+
+  if (path === "/offline.html" || path === "/offline") {
+    return serveAsset(request, env, path, {
+      "content-type": "text/html; charset=utf-8",
+    });
+  }
+
   if (env.ASSETS) {
     const res = await env.ASSETS.fetch(request);
     const headers = new Headers(res.headers);
@@ -81,6 +101,25 @@ function html(body, status = 200) {
     status,
     headers: { "content-type": "text/html; charset=utf-8", ...SECURITY },
   });
+}
+
+async function serveAsset(request, env, path, extraHeaders = {}) {
+  if (!env.ASSETS) return new Response("Not found", { status: 404, headers: SECURITY });
+  const first = new URL(path, request.url);
+  let res = await env.ASSETS.fetch(new Request(first, { method: "GET" }));
+  if (res.status >= 300 && res.status < 400) {
+    const loc = res.headers.get("Location");
+    if (loc) {
+      const next = new URL(loc, first);
+      if (next.origin === first.origin) {
+        res = await env.ASSETS.fetch(new Request(next, { method: "GET" }));
+      }
+    }
+  }
+  const headers = new Headers(res.headers);
+  for (const [k, v] of Object.entries(SECURITY)) headers.set(k, v);
+  for (const [k, v] of Object.entries(extraHeaders)) headers.set(k, v);
+  return new Response(res.body, { status: res.status, headers });
 }
 
 function originOf(request) {
@@ -517,11 +556,20 @@ async function traditionPage(request, env, url, expectedRole) {
     ogTitle: data.tradition.name,
     ogDescription: [when, data.tradition.practice_note].filter(Boolean).join(" — ").slice(0, 180),
     origin: originOf(request),
+    hue: hueOf(data.tradition.name),
     body,
   }));
 }
 
-function pageShell({ title, description, ogTitle, ogDescription, origin, body }) {
+function hueOf(name) {
+  const s = String(name || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return ["red", "orange", "yellow", "green", "blue", "indigo", "violet"][h % 7];
+}
+
+function pageShell({ title, description, ogTitle, ogDescription, origin, body, hue }) {
+  const wrapClass = hue ? `wrap hue-${esc(hue)}` : "wrap";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -536,13 +584,20 @@ function pageShell({ title, description, ogTitle, ogDescription, origin, body })
   <meta property="og:type" content="website">
   <meta property="og:image" content="${esc(origin)}/og.png">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#f6efe4">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Recurday">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="wrap">
+  <div class="${wrapClass}">
     <header class="top">
-      <a class="brand" href="/">Recurday</a>
+      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="36" height="22" alt="">Recurday</a>
     </header>
     ${body}
   </div>

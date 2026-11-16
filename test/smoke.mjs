@@ -15,6 +15,14 @@ const JPG = Buffer.from(
 let failed = 0;
 let passed = 0;
 
+function pngSize(buf) {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  if (bytes.length < 24 || bytes[0] !== 0x89 || bytes[1] !== 0x50) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { w: view.getUint32(16), h: view.getUint32(20) };
+}
+
+
 function check(name, cond, detail = "") {
   if (cond) {
     passed += 1;
@@ -111,6 +119,79 @@ async function main() {
     check("home is noindex", (home.headers.get("x-robots-tag") || "").includes("noindex") && homeHtml.includes("noindex"));
     check("home has no likes or rankings", !/leaderboard|like button|popularity/i.test(homeHtml) && !homeHtml.includes("id=\"like\""));
 
+    const manifestRes = await fetch(`${base}/manifest.webmanifest`);
+    const manifestType = manifestRes.headers.get("content-type") || "";
+    const manifest = await manifestRes.json();
+    check("manifest is served", manifestRes.ok && manifestType.includes("manifest") && manifestType.includes("json"));
+    check(
+      "manifest names Recurday as a standalone app",
+      manifest.name === "Recurday" &&
+        manifest.short_name === "Recurday" &&
+        manifest.display === "standalone" &&
+        (manifest.start_url === "/" || manifest.start_url === "./") &&
+        manifest.theme_color === "#f6efe4" &&
+        manifest.background_color === "#f6efe4",
+      JSON.stringify(manifest)
+    );
+    const purposes = (manifest.icons || []).flatMap((icon) => String(icon.purpose || "any").split(/\s+/));
+    const sizes = new Set((manifest.icons || []).map((icon) => icon.sizes));
+    check("manifest has 192, 512, and maskable icons", sizes.has("192x192") && sizes.has("512x512") && purposes.includes("any") && purposes.includes("maskable"));
+
+    const iconChecks = [
+      ["/icons/icon-192.png", 192],
+      ["/icons/icon-512.png", 512],
+      ["/icons/icon-192-maskable.png", 192],
+      ["/icons/icon-512-maskable.png", 512],
+      ["/apple-touch-icon.png", 180],
+      ["/favicon.png", 64],
+    ];
+    for (const [path, edge] of iconChecks) {
+      const res = await fetch(`${base}${path}`);
+      const buf = new Uint8Array(await res.arrayBuffer());
+      const dim = pngSize(buf);
+      check(
+        `${path} is a ${edge}px PNG`,
+        res.ok && (res.headers.get("content-type") || "").includes("image/png") && dim && dim.w === edge && dim.h === edge,
+        `status=${res.status} type=${res.headers.get("content-type")} dim=${JSON.stringify(dim)}`
+      );
+    }
+
+    const sw = await fetch(`${base}/sw.js`);
+    const swText = await sw.text();
+    const swType = sw.headers.get("content-type") || "";
+    const shellMatch = swText.match(/const SHELL\s*=\s*\[([\s\S]*?)\];/);
+    const shellList = shellMatch ? shellMatch[1] : "";
+    check("service worker is javascript", sw.ok && /javascript/.test(swType));
+    check("service worker is scoped to the whole app", (sw.headers.get("service-worker-allowed") || "") === "/");
+    check("service worker caches the app shell", /recurday-shell/.test(swText) && shellList.includes("/offline.html") && shellList.includes("/styles.css") && shellList.includes("/app.js"));
+    check(
+      "service worker never caches private family data",
+      /const PRIVATE\s*=/.test(swText) &&
+        /\(media\|api\|t\|a\|s\)/.test(swText) &&
+        !shellList.includes("/media") &&
+        !shellList.includes("/api/") &&
+        !shellList.includes("/t/") &&
+        !shellList.includes("/a/") &&
+        !shellList.includes("/s/")
+    );
+
+    const offline = await fetch(`${base}/offline.html`, { redirect: "manual" });
+    const offlineHtml = offline.status === 200 ? await offline.text() : "";
+    check("offline fallback page loads", offline.status === 200 && (offline.headers.get("content-type") || "").includes("text/html") && offlineHtml.includes("You're offline"));
+
+    check(
+      "home is installable on iOS and Android",
+      homeHtml.includes('rel="manifest"') &&
+        homeHtml.includes("/manifest.webmanifest") &&
+        homeHtml.includes('rel="apple-touch-icon"') &&
+        homeHtml.includes('name="theme-color" content="#f6efe4"') &&
+        homeHtml.includes('name="apple-mobile-web-app-capable" content="yes"') &&
+        homeHtml.includes('name="apple-mobile-web-app-title" content="Recurday"') &&
+        homeHtml.includes("/app.js")
+    );
+    check("home still uses the generic share image", homeHtml.includes('property="og:image" content="/og.png"'));
+
+
     const robots = await fetch(`${base}/robots.txt`);
     const robotsTxt = await robots.text();
     check("robots.txt disallows all", robots.ok && /Disallow:\s*\//.test(robotsTxt));
@@ -139,6 +220,14 @@ async function main() {
     check("household page has send-to-family", familyHtml.includes("Send to our family"));
     check("household page has no like/count chrome", !familyHtml.includes("leaderboard") && !familyHtml.includes('id="like"') && !familyHtml.includes("Like this"));
     check("household link preview uses generic image", familyHtml.includes('property="og:image"') && familyHtml.includes("/og.png") && !/property="og:image" content="[^"]*\/media\//.test(familyHtml));
+    check(
+      "household page keeps install tags and a rainbow hue",
+      familyHtml.includes('rel="manifest" href="/manifest.webmanifest"') &&
+        familyHtml.includes('rel="apple-touch-icon"') &&
+        familyHtml.includes('name="theme-color" content="#f6efe4"') &&
+        familyHtml.includes("/icons/mark.svg") &&
+        /class="wrap hue-(red|orange|yellow|green|blue|indigo|violet)"/.test(familyHtml)
+    );
     check("video upload is hidden with coming-soon note", familyHtml.includes("Video coming soon") && familyHtml.includes('accept="image/jpeg,image/png,image/webp,image/gif"') && !familyHtml.includes("video/mp4"));
 
     const form = new FormData();

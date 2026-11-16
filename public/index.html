@@ -6,19 +6,26 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="no-referrer">
   <title>Recurday</title>
-  <meta name="description" content="Keep your family's own special days, away from the major holidays, and rewatch them as the years go by.">
+  <meta name="description" content="Keep your family's own special days, away from the major holidays, and rewatch them as the kids grow.">
   <meta property="og:title" content="Recurday">
   <meta property="og:description" content="Your family's own special days, kept and rewatched as the kids grow.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="/og.png">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#f6efe4">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Recurday">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap home">
     <header class="top">
-      <a class="brand" href="/">Recurday</a>
+      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="36" height="22" alt="">Recurday</a>
     </header>
     <h1>Your family's own special days.</h1>
     <p class="lead">Away from the major holidays. Take pictures of the day you keep, then come back next year — and the year after — and watch the kids grow.</p>
@@ -31,7 +38,7 @@
         <input id="timing" name="timing_note" type="text" maxlength="200" placeholder="First Saturday in June">
         <label for="practice">How do you do it?</label>
         <textarea id="practice" name="practice_note" maxlength="2000" placeholder="We make pancakes, go to the creek, and eat outside."></textarea>
-        <p class="hint">You'll get a link you can text to your family. No app to install, and no account to create.</p>
+        <p class="hint">You'll get a link you can text to your family. No account to create. You can also add Recurday to your home screen.</p>
         <button class="btn" type="submit">Create this tradition</button>
         <p class="error hidden" id="create-error"></p>
       </form>

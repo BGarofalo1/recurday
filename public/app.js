@@ -321,3 +321,103 @@ if (rotateBtn) {
     }
   });
 }
+
+
+const A2HS_KEY = "recurday-a2hs-dismissed";
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches
+    || window.matchMedia("(display-mode: minimal-ui)").matches
+    || window.matchMedia("(display-mode: fullscreen)").matches
+    || window.navigator.standalone === true;
+}
+
+function isIos() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  return navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1;
+}
+
+function dismissA2hs(bar) {
+  try { localStorage.setItem(A2HS_KEY, "1"); } catch {}
+  bar.remove();
+}
+
+function installBar(message, actions) {
+  const bar = document.createElement("div");
+  bar.className = "a2hs";
+  bar.setAttribute("role", "dialog");
+  bar.setAttribute("aria-label", "Add Recurday to your home screen");
+  const p = document.createElement("p");
+  p.textContent = message;
+  const row = document.createElement("div");
+  row.className = "a2hs-actions";
+  for (const action of actions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = action.primary ? "btn" : "btn secondary";
+    btn.textContent = action.label;
+    btn.addEventListener("click", () => action.onClick(bar));
+    row.append(btn);
+  }
+  bar.append(p, row);
+  document.body.append(bar);
+  return bar;
+}
+
+function setupInstallHint() {
+  if (isStandalone()) return;
+  try { if (localStorage.getItem(A2HS_KEY)) return; } catch {}
+
+  let deferredPrompt = null;
+  let shown = false;
+
+  function showIos() {
+    if (shown) return;
+    shown = true;
+    installBar(
+      "Add Recurday to your home screen. Tap the Share button (the square with an arrow), then Add to Home Screen.",
+      [{ label: "Got it", primary: true, onClick: dismissA2hs }]
+    );
+  }
+
+  function showInstall() {
+    if (shown) return;
+    shown = true;
+    installBar(
+      "Add Recurday to your home screen.",
+      [
+        {
+          label: "Add",
+          primary: true,
+          onClick: async (bar) => {
+            if (!deferredPrompt) { dismissA2hs(bar); return; }
+            deferredPrompt.prompt();
+            try { await deferredPrompt.userChoice; } catch {}
+            deferredPrompt = null;
+            dismissA2hs(bar);
+          },
+        },
+        { label: "Not now", primary: false, onClick: dismissA2hs },
+      ]
+    );
+  }
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    showInstall();
+  });
+
+  if (isIos()) {
+    setTimeout(showIos, 1200);
+  }
+}
+
+setupInstallHint();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+  });
+}
