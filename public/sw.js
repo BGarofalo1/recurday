@@ -1,5 +1,5 @@
 /* Recurday app shell only. Never cache family photos, videos, or tradition pages. */
-const CACHE = "recurday-shell-v1";
+const CACHE = "recurday-shell-v2";
 const SHELL = [
   "/",
   "/styles.css",
@@ -13,7 +13,7 @@ const SHELL = [
   "/icons/icon-512.png",
 ];
 
-const PRIVATE = /^\/(media|api|t|a|s)(\/|$)/;
+const PRIVATE = /^\/(media|api|t|a|s|f|cal|calendar|family)(\/|$)/;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

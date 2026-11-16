@@ -23,6 +23,14 @@ function pngSize(buf) {
 }
 
 
+function sessionCookieFrom(res) {
+  const list = typeof res.headers.getSetCookie === "function"
+    ? res.headers.getSetCookie()
+    : [res.headers.get("set-cookie")].filter(Boolean);
+  const line = list.find((c) => c && c.startsWith("recurday_session="));
+  return line ? line.split(";")[0] : "";
+}
+
 function check(name, cond, detail = "") {
   if (cond) {
     passed += 1;
@@ -96,6 +104,7 @@ async function main() {
       "--ip", "127.0.0.1",
       "--port", String(port),
       "--persist-to", persist,
+      "--var", "SESSION_SECRET:test-session-secret-not-for-production",
     ], {
       cwd: root,
       env: { ...process.env, CLOUDFLARE_API_TOKEN: "", CLOUDFLARE_ACCOUNT_ID: "" },
@@ -167,12 +176,16 @@ async function main() {
     check(
       "service worker never caches private family data",
       /const PRIVATE\s*=/.test(swText) &&
-        /\(media\|api\|t\|a\|s\)/.test(swText) &&
+        /\(media\|api\|t\|a\|s\|f\|cal\|calendar\|family\)/.test(swText) &&
         !shellList.includes("/media") &&
         !shellList.includes("/api/") &&
         !shellList.includes("/t/") &&
         !shellList.includes("/a/") &&
-        !shellList.includes("/s/")
+        !shellList.includes("/s/") &&
+        !shellList.includes("/f/") &&
+        !shellList.includes("/cal") &&
+        !shellList.includes("/calendar") &&
+        !shellList.includes("/family")
     );
 
     const offline = await fetch(`${base}/offline.html`, { redirect: "manual" });
@@ -217,7 +230,7 @@ async function main() {
     const familyHtml = await familyPage.text();
     check("household page title and og", familyPage.ok && familyHtml.includes("<title>Pancake Saturday — Recurday</title>") && familyHtml.includes('property="og:title" content="Pancake Saturday"'));
     check("household page noindex", (familyPage.headers.get("x-robots-tag") || "").includes("noindex"));
-    check("household page has send-to-family", familyHtml.includes("Send to our family"));
+    check("household page has text-to-family", familyHtml.includes("Text this to family"));
     check("household page has no like/count chrome", !familyHtml.includes("leaderboard") && !familyHtml.includes('id="like"') && !familyHtml.includes("Like this"));
     check("household link preview uses generic image", familyHtml.includes('property="og:image"') && familyHtml.includes("/og.png") && !/property="og:image" content="[^"]*\/media\//.test(familyHtml));
     check(
@@ -339,7 +352,158 @@ async function main() {
 
     const keeper = await fetch(`${base}${trad.admin_path}`);
     const keeperHtml = await keeper.text();
-    check("keeper page can still rewatch", keeper.ok && keeperHtml.includes("Pancake Saturday") && keeperHtml.includes("Invite another family"));
+    check("keeper page can still rewatch", keeper.ok && keeperHtml.includes("Pancake Saturday") && keeperHtml.includes("Pass it on"));
+
+    const passOn = await fetch(`${base}/api/shares`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ t: adminToken, label: "The Carters" }),
+    });
+    const passBody = await passOn.json();
+    check("pass-it-on invite can be minted", passOn.status === 201 && passBody.invite_path, JSON.stringify(passBody));
+    const passPage = await fetch(`${base}${passBody.invite_path}`);
+    const passHtml = await passPage.text();
+    check(
+      "shared link offers start-your-own and generic preview",
+      passPage.ok &&
+        passHtml.includes("Start your own family's traditions") &&
+        passHtml.includes('property="og:image"') &&
+        passHtml.includes("/og.png") &&
+        (passPage.headers.get("x-robots-tag") || "").includes("noindex")
+    );
+
+    const yearHtml2 = await (await fetch(`${base}${trad.household_path}?year=2024`)).text();
+    check("through the years is offered when a year has photos", yearHtml2.includes("Through the years") && yearHtml2.includes("id=\"years-data\""));
+
+    const createdFamily = await fetch(`${base}/api/family/create`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "The Testers", passcode: "together-please" }),
+    });
+    const fam = await createdFamily.json();
+    const famCookie = sessionCookieFrom(createdFamily);
+    check("create family login", createdFamily.status === 201 && famCookie && fam.calendar_path === "/calendar", JSON.stringify(fam));
+
+    const taken = await fetch(`${base}/api/family/create`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "the testers", passcode: "another-passcode" }),
+    });
+    check("family name is unique, case-insensitive", taken.status === 409);
+
+    const badLogin = await fetch(`${base}/api/family/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "The Testers", passcode: "wrong-passcode" }),
+    });
+    check("wrong passcode is rejected", badLogin.status === 401);
+
+    const goodLogin = await fetch(`${base}/api/family/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "The Testers", passcode: "together-please" }),
+    });
+    const loginCookie = sessionCookieFrom(goodLogin);
+    check("family can log in", goodLogin.ok && loginCookie);
+
+    const calendar = await fetch(`${base}/calendar`, { headers: { cookie: loginCookie } });
+    const calHtml = await calendar.text();
+    check("calendar is the family home", calendar.ok && calHtml.includes("Our traditions") && calHtml.includes("Upcoming") && (calendar.headers.get("x-robots-tag") || "").includes("noindex"));
+    check("calendar is not a public listing", !/leaderboard|most popular|referral/i.test(calHtml));
+
+    const calAnon = await fetch(`${base}/calendar`, { redirect: "manual" });
+    check("calendar requires login", calAnon.status === 303 || calAnon.status === 401 || calAnon.status === 302);
+
+    const ics = await fetch(`${base}${fam.ics_path}`);
+    const icsText = await ics.text();
+    const icsType = ics.headers.get("content-type") || "";
+    check("private calendar feed is an ics", ics.ok && icsType.includes("text/calendar") && icsText.includes("BEGIN:VCALENDAR") && (ics.headers.get("x-robots-tag") || "").includes("noindex"));
+    const icsBad = await fetch(`${base}/cal/not-a-real-calendar-token-value.ics`);
+    check("ics with a bad token is hidden", icsBad.status === 404);
+
+    const madeOnCal = await fetch(`${base}/api/family/traditions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: loginCookie },
+      body: JSON.stringify({ name: "Pancake Saturday", practice_note: "Pancakes together.", date: "2026-06-06", recur_type: "nth_weekday" }),
+    });
+    const made = await madeOnCal.json();
+    check("logged-in family can add a tradition from a date", madeOnCal.status === 201 && made.tradition_path, JSON.stringify(made));
+    const calJune = await fetch(`${base}/calendar?year=2026&month=6`, { headers: { cookie: loginCookie } });
+    const juneHtml = await calJune.text();
+    check("calendar shows the tradition on its date", calJune.ok && juneHtml.includes("Pancake Saturday") && juneHtml.includes("/f/") && juneHtml.includes("hue-"));
+
+    const exportAnon = await fetch(`${base}/family/export`, { redirect: "manual" });
+    check("export requires login", exportAnon.status === 401 || exportAnon.status === 303 || exportAnon.status === 302);
+    const exported = await fetch(`${base}/family/export`, { headers: { cookie: loginCookie } });
+    const zipBuf = new Uint8Array(await exported.arrayBuffer());
+    const zipText = new TextDecoder("latin1").decode(zipBuf);
+    check(
+      "family export is a private zip with an index",
+      exported.ok &&
+        (exported.headers.get("content-type") || "").includes("zip") &&
+        zipBuf[0] === 0x50 && zipBuf[1] === 0x4b &&
+        zipText.includes("family.json") &&
+        zipText.includes("index.html") &&
+        zipText.includes("Pancake Saturday")
+    );
+
+    const claimable = await fetch(`${base}/api/traditions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Lantern Night", timing_note: "December 21", practice_note: "We light a lantern." }),
+    });
+    const claimedTrad = await claimable.json();
+    const claimToken = claimedTrad.household_path.split("/t/")[1];
+    const claimPage = await fetch(`${base}${claimedTrad.household_path}`);
+    const claimHtml = await claimPage.text();
+    check("existing tradition link offers family login setup", claimPage.ok && claimHtml.includes("Set up your family login"));
+    const claimed = await fetch(`${base}/api/family/claim`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ t: claimToken, name: "The Testers", passcode: "together-please" }),
+    });
+    const claimedBody = await claimed.json();
+    check("existing tradition can be claimed by the family", claimed.ok && claimedBody.calendar_path === "/calendar", JSON.stringify(claimedBody));
+    const afterClaim = await fetch(`${base}/calendar?year=2026&month=12`, { headers: { cookie: loginCookie } });
+    check("claimed tradition appears on the calendar", afterClaim.ok && (await afterClaim.text()).includes("Lantern Night"));
+
+    const shareStill = await fetch(`${base}${passBody.invite_path}`);
+    check("pass-it-on link still works without login", shareStill.ok);
+
+    const changed = await fetch(`${base}/api/family/passcode`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: loginCookie },
+      body: JSON.stringify({ current_passcode: "together-please", new_passcode: "new-together-ok" }),
+    });
+    const newCookie = sessionCookieFrom(changed);
+    check("family can change the passcode", changed.ok && newCookie);
+    const oldSession = await fetch(`${base}/calendar`, { headers: { cookie: loginCookie }, redirect: "manual" });
+    check("changing the passcode signs out other devices", oldSession.status === 303 || oldSession.status === 401 || oldSession.status === 302);
+    const newSession = await fetch(`${base}/calendar`, { headers: { cookie: newCookie } });
+    check("new passcode session still opens the calendar", newSession.ok);
+
+    const logout = await fetch(`${base}/api/family/logout`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: newCookie },
+    });
+    const loggedOutCookie = sessionCookieFrom(logout);
+    check("family can log out", logout.ok);
+
+    const lockerName = "Lockout Family";
+    let lastLock;
+    for (let i = 0; i < 5; i++) {
+      lastLock = await fetch(`${base}/api/family/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: lockerName, passcode: "definitely-wrong" }),
+      });
+    }
+    const locked = await fetch(`${base}/api/family/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: lockerName, passcode: "definitely-wrong" }),
+    });
+    check("login is locked after repeated failures", locked.status === 429, `status=${locked.status} prior=${lastLock.status}`);
   } finally {
     if (child && !child.killed) {
       child.kill("SIGTERM");

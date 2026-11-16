@@ -6,9 +6,9 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="no-referrer">
   <title>Recurday</title>
-  <meta name="description" content="Keep your family's own special days, away from the major holidays, and rewatch them as the kids grow.">
+  <meta name="description" content="Keep the days your family gives back to each other, away from the major holidays, and rewatch them as the years go by.">
   <meta property="og:title" content="Recurday">
-  <meta property="og:description" content="Your family's own special days, kept and rewatched as the kids grow.">
+  <meta property="og:description" content="Your family's own special days, kept and given back as the kids grow.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="/og.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -28,9 +28,37 @@
       <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="36" height="22" alt="">Recurday</a>
     </header>
     <h1>Your family's own special days.</h1>
-    <p class="lead">Away from the major holidays. Take pictures of the day you keep, then come back next year — and the year after — and watch the kids grow.</p>
+    <p class="lead">Away from the major holidays. Keep a day you give to each other, take pictures, and come back next year — and watch one another grow. Recurday spreads when you text a link, not through an app store.</p>
+
+    <div class="card">
+      <h2>Start your family's traditions</h2>
+      <p>One family name and one passcode, shared with everyone at home. You'll get a calendar of the days you keep together.</p>
+      <form id="family-create-form">
+        <label for="create-family-name">Family name</label>
+        <input id="create-family-name" name="name" type="text" required minlength="2" maxlength="40" autocomplete="username" placeholder="The Garofalos">
+        <label for="create-passcode">Passcode (at least 8 characters)</label>
+        <input id="create-passcode" name="passcode" type="password" required minlength="8" autocomplete="new-password">
+        <p class="hint">Anyone at home logs in with the same name and passcode. No email, and no individual accounts.</p>
+        <button class="btn" type="submit">Create our family login</button>
+        <p class="error hidden" id="family-create-error"></p>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Log in</h2>
+      <form id="family-login-form">
+        <label for="login-family-name">Family name</label>
+        <input id="login-family-name" name="name" type="text" required minlength="2" maxlength="40" autocomplete="username">
+        <label for="login-passcode">Passcode</label>
+        <input id="login-passcode" name="passcode" type="password" required minlength="8" autocomplete="current-password">
+        <button class="btn" type="submit">Open our calendar</button>
+        <p class="error hidden" id="family-login-error"></p>
+      </form>
+    </div>
+
     <div class="card">
       <h2>Start a tradition</h2>
+      <p class="hint">You can also begin with a single tradition and a link, then set up your family login later.</p>
       <form id="create-form" method="post" action="/api/traditions">
         <label for="name">What do you call it?</label>
         <input id="name" name="name" type="text" required maxlength="80" placeholder="Pancake Saturday">
@@ -38,12 +66,12 @@
         <input id="timing" name="timing_note" type="text" maxlength="200" placeholder="First Saturday in June">
         <label for="practice">How do you do it?</label>
         <textarea id="practice" name="practice_note" maxlength="2000" placeholder="We make pancakes, go to the creek, and eat outside."></textarea>
-        <p class="hint">You'll get a link you can text to your family. No account to create. You can also add Recurday to your home screen.</p>
-        <button class="btn" type="submit">Create this tradition</button>
+        <p class="hint">You'll get a link you can text to your family. No account is required for that. You can also add Recurday to your home screen, from the browser — not an app store.</p>
+        <button class="btn secondary" type="submit">Create this tradition</button>
         <p class="error hidden" id="create-error"></p>
       </form>
     </div>
-    <p class="foot">Traditions are private unless you choose to invite another family. There are no likes, rankings, or public lists.</p>
+    <p class="foot">Traditions are private unless you choose to pass one on to another family. There are no likes, rankings, or public lists.</p>
   </div>
   <script src="/app.js" defer></script>
 </body>

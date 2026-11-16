@@ -4,35 +4,48 @@ A free web app for a family's own special traditions — away from the major hol
 
 Live: [https://recurday.bgarofalo1.workers.dev](https://recurday.bgarofalo1.workers.dev)
 
+There is no app store. Recurday spreads by word of mouth when a family texts a link.
+
 The code is open source. Family photos, videos, and private links are not. Those stay with the family who made them, and they are never part of this repository.
+
+## Why Recurday
+
+René Girard described a triangle of desire: we often want a thing because someone else wants it, and that can slide into rivalry. The Trinity, in Christian thought, is a picture of mutual love — each person giving, none competing for a place. Recurday is an attempt to redeem mimesis in a small, everyday way: a family can pass a practice on so another family can keep it as their own, without likes, rankings, referral counts, or a public list to climb.
+
+That idea stays in this file. The app itself just talks about giving, keeping, and being together.
 
 ## What it does
 
-- Create a tradition (a name, when it happens, and how you do it)
-- Text an unguessable family link — no account needed. You can also add Recurday to your phone's home screen
+- Keep a shared family calendar as the home of your traditions. Each one can fall on a fixed date or on something like the first Saturday in June, and it comes back every year.
+- Set up one family login (a family name and one shared passcode) so everyone in the house can open the calendar. No email, and no individual accounts. You can claim an older private link into that login.
+- Text an unguessable family link — no account needed. Tap **Text this to family**. Recurday uses the phone's share sheet when it can, or opens a text message if it cannot.
 - Add photos for that year (shrunk on the phone, about 2 MB each). Video coming soon.
-- Rewatch year by year
-- Optionally invite one other family with a revocable link. They can look, and they can tap **Start this tradition too**, which copies the practice, not the photos.
+- Rewatch **Through the years**: a quiet slideshow, oldest year first, with the year named and then that year's photos.
+- Optionally **Pass it on** — a revocable invite to another family. They can look, and they can tap **Start this tradition too**, which copies the practice, not the photos. When they open the link they also see a gentle invitation to start their own family's traditions, and a hint to add Recurday to the home screen.
+- Export a private zip of your traditions, photos, and a simple index, to keep and pass down. If the whole family archive is too large, you can export one tradition at a time.
+- Add Recurday to your phone's home screen. There is no app store.
 
-## Design (René Girard)
+## Design
 
 Recurday is built so families can share a practice without slipping into rivalry, envy, or a public scoreboard.
 
-- There are no likes, counts, rankings, or public lists of traditions
+- There are no likes, counts, rankings, referral scores, or public lists of traditions
 - Links are private and unguessable; `robots` is set to `noindex`
 - Link previews use a generic image, never a family's photos
 - A share is an invitation you can stop. Another family gets the practice, not your media
-
+- The family passcode is stored as a slow hash (PBKDF2). Sessions are httpOnly cookies. Changing the passcode signs out other devices. Logins are rate-limited.
 
 ## Add it to your home screen
 
-Recurday is a Progressive Web App. It uses a small service worker that caches only the public app shell (the home page, styles, and the offline message) so it opens quickly. Family photos, videos, and tradition pages are never cached on the device.
+Recurday is a Progressive Web App. It uses a small service worker that caches only the public app shell (the home page, styles, and the offline message) so it opens quickly. Family photos, videos, tradition pages, the calendar, and family login routes are never cached on the device.
 
-**On iPhone:** open [Recurday](https://recurday.bgarofalo1.workers.dev) in Safari, tap the Share button (the square with an arrow), then **Add to Home Screen**.
+**On iPhone:** open a Recurday link in Safari, tap the Share button (the square with an arrow), then **Add to Home Screen**.
 
 **On Android:** open Recurday in Chrome. When you see the prompt, tap **Add**. Or open the Chrome menu and choose **Add to Home screen**.
 
 Icons and the share image are generated locally by `python3 scripts/generate-brand.py`.
+
+A family's own calendar can also be added to a phone or computer calendar app through a private `.ics` link. That link is unguessable; you can rotate it if it ever leaks.
 
 ## Run it locally
 
@@ -40,20 +53,21 @@ You need Node 22+ and a Cloudflare account only if you plan to deploy.
 
 ```bash
 npm install
-npm test          # local smoke tests (never hits production)
+npm test          # unit tests, then local smoke tests (never hits production)
 npm run dev       # http://127.0.0.1:8787
 ```
 
-`npm run dev` uses a local D1 database and a local KV store. Do not pass `--remote` to wrangler unless you mean to change the live app.
+`npm run dev` uses a local D1 database and a local KV store. For family login to work locally, set `SESSION_SECRET` in `.dev.vars` (that file is gitignored). Tests pass the secret on the command line. Do not pass `--remote` to wrangler unless you mean to change the live app.
 
 ## Deploy
 
-Hosting is on Cloudflare Workers, with D1 for metadata and a private Workers KV namespace for photos (R2 would be the longer-term store, but it needs a payment method). Media is never public: the Worker only serves a photo after a valid household, keeper, or accepted-invite token.
+Hosting is on Cloudflare Workers, with D1 for metadata and a private Workers KV namespace for photos (R2 would be the longer-term store, but it needs a payment method). Media is never public: the Worker only serves a photo after a valid household, keeper, accepted-invite, or family-login session.
 
 1. `npx wrangler login`
 2. Create a D1 database named `recurday` (or reuse the one in `wrangler.toml`) and apply migrations: `npx wrangler d1 migrations apply recurday --remote`
 3. Create a KV namespace named `recurday-media` and put its id in `wrangler.toml`. Do not reuse a namespace from another project.
-4. `npx wrangler deploy`
+4. Set a session secret once, and never commit it: `npx wrangler secret put SESSION_SECRET`
+5. `npx wrangler deploy`
 
 A custom domain is optional and is not included here. Do not commit `.dev.vars`, `.wrangler/`, or any secrets.
 

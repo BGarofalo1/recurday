@@ -65,6 +65,58 @@ function tokenFromPath() {
   return m ? decodeURIComponent(m[1]) : "";
 }
 
+function traditionIdFrom(el) {
+  return el?.dataset?.traditionId || (location.pathname.match(/^\/f\/([^/]+)/) || [])[1] || "";
+}
+
+function authPayload(el, extra = {}) {
+  const t = el?.dataset?.token || tokenFromPath();
+  const tradition_id = traditionIdFrom(el);
+  return { ...(t ? { t } : {}), ...(tradition_id ? { tradition_id } : {}), ...extra };
+}
+
+function isMobile() {
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "")
+    || (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
+}
+
+function smsHref(text) {
+  const body = encodeURIComponent(text);
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1)
+    ? `sms:&body=${body}`
+    : `sms:?body=${body}`;
+}
+
+function shareMessage(kind, name, url) {
+  if (kind === "pass") {
+    return `We wanted to pass one of our family traditions on to you, on Recurday. Open this link (no app store):
+${url}`;
+  }
+  return `We're keeping ${name || "a tradition"} on Recurday. Open this link (no app store):
+${url}`;
+}
+
+async function textToFamily({ url, name, kind = "family", button }) {
+  const text = shareMessage(kind, name, url);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Recurday", text, url });
+      if (button) button.textContent = "Sent — or ready to send";
+      return "shared";
+    } catch (err) {
+      if (err && err.name === "AbortError") return "aborted";
+    }
+  }
+  if (isMobile()) {
+    window.location.href = smsHref(text);
+    if (button) button.textContent = "Opening your messages";
+    return "sms";
+  }
+  const ok = await copyText(text);
+  if (button) button.textContent = ok ? "Copied — ready to text" : "Copy failed, long-press the link instead";
+  return ok ? "copied" : "failed";
+}
+
 function showError(node, message) {
   if (!node) return;
   node.textContent = message;
@@ -97,13 +149,13 @@ if (createForm) {
 const shareBtn = $("#copy-household");
 if (shareBtn) {
   shareBtn.addEventListener("click", async () => {
-    const url = shareBtn.dataset.url;
-    const name = shareBtn.dataset.name || "our tradition";
-    const text = `We're keeping ${name} on Recurday. Open this link (no app needed):\n${url}`;
-    const ok = await copyText(text);
-    shareBtn.textContent = ok ? "Copied — ready to text" : "Copy failed, long-press the link instead";
+    await textToFamily({
+      url: shareBtn.dataset.url,
+      name: shareBtn.dataset.name || "our tradition",
+      button: shareBtn,
+    });
     setTimeout(() => {
-      shareBtn.textContent = "Send to our family";
+      shareBtn.textContent = "Text this to family";
     }, 2500);
   });
 }
@@ -111,9 +163,8 @@ if (shareBtn) {
 const copyInvite = $("#copy-invite");
 if (copyInvite) {
   copyInvite.addEventListener("click", async () => {
-    const url = copyInvite.dataset.url;
-    const ok = await copyText(`We wanted to share one of our family traditions with you, on Recurday. Open this link (no app needed):\n${url}`);
-    copyInvite.textContent = ok ? "Invite link copied" : "Copy failed — use the link below";
+    await textToFamily({ url: copyInvite.dataset.url, kind: "pass", button: copyInvite });
+    setTimeout(() => { copyInvite.textContent = "Text this pass-it-on link"; }, 2500);
   });
 }
 
@@ -126,6 +177,7 @@ if (uploadForm) {
     showError(err, "");
     if (status) status.textContent = "Preparing…";
     const token = uploadForm.dataset.token || tokenFromPath();
+    const traditionId = traditionIdFrom(uploadForm);
     const fileInput = $("#file");
     const file = fileInput?.files?.[0];
     if (!file) {
@@ -139,7 +191,8 @@ if (uploadForm) {
       const prepared = await prepareFile(file);
       if (status) status.textContent = "Uploading…";
       const fd = new FormData();
-      fd.set("t", token);
+      if (token) fd.set("t", token);
+      if (traditionId) fd.set("tradition_id", traditionId);
       fd.set("year", $("#year").value);
       fd.set("observed_on", $("#observed_on")?.value || "");
       fd.set("note", $("#day_note")?.value || "");
@@ -163,15 +216,11 @@ if (inviteForm) {
     event.preventDefault();
     const err = $("#invite-error");
     showError(err, "");
-    const token = inviteForm.dataset.token || tokenFromPath();
     try {
       const res = await fetch("/api/shares", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          t: token,
-          label: $("#label").value,
-        }),
+        body: JSON.stringify(authPayload(inviteForm, { label: $("#label").value })),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not make that invite.");
@@ -179,11 +228,10 @@ if (inviteForm) {
       if (box) {
         box.innerHTML = `<div class="notice"><p class="ok">Text this invite to them now. We can't show it again later.</p>
           <div class="links"><p><a href="${body.invite_path}">${body.invite_url}</a></p></div>
-          <button class="btn" type="button" id="copy-invite" data-url="${body.invite_url}">Copy the invite link</button></div>`;
+          <button class="btn" type="button" id="copy-invite" data-url="${body.invite_url}">Text this pass-it-on link</button></div>`;
         const copyInvite = document.getElementById("copy-invite");
         copyInvite?.addEventListener("click", async () => {
-          const ok = await copyText(`We wanted to share one of our family traditions with you, on Recurday. Open this link (no app needed):\n${copyInvite.dataset.url}`);
-          copyInvite.textContent = ok ? "Invite link copied" : "Copy failed — use the link above";
+          await textToFamily({ url: copyInvite.dataset.url, kind: "pass", button: copyInvite });
         });
       }
     } catch (e) {
@@ -196,12 +244,11 @@ document.querySelectorAll("[data-revoke]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const err = $("#invite-error");
     showError(err, "");
-    const token = tokenFromPath();
     try {
       const res = await fetch("/api/shares/revoke", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ t: token, share_id: btn.dataset.revoke }),
+        body: JSON.stringify(authPayload(btn, { share_id: btn.dataset.revoke })),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not stop that share.");
@@ -276,12 +323,11 @@ if (yearNote) {
       const res = await fetch("/api/days", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          t: tokenFromPath(),
+        body: JSON.stringify(authPayload($("#year-note-form") || $("#upload-form"), {
           year: Number($("#year").value),
           observed_on: $("#observed_on")?.value || "",
           note: $("#day_note")?.value || "",
-        }),
+        })),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not save that note.");
@@ -301,19 +347,17 @@ if (rotateBtn) {
       const res = await fetch("/api/household/rotate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ t: rotateBtn.dataset.token || tokenFromPath() }),
+        body: JSON.stringify(authPayload(rotateBtn)),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not make a fresh family link.");
       if (box) {
         box.innerHTML = `<div class="notice"><p class="ok">Here is a fresh family link. The previous one no longer works.</p>
           <div class="links"><p><a href="${body.household_path}">${body.household_url}</a></p></div>
-          <button class="btn" type="button" id="copy-household" data-url="${body.household_url}" data-name="${document.querySelector("h1")?.textContent || "our tradition"}">Send to our family</button></div>`;
+          <button class="btn" type="button" id="copy-household" data-url="${body.household_url}" data-name="${document.querySelector("h1")?.textContent || "our tradition"}">Text this to family</button></div>`;
         const btn = document.getElementById("copy-household");
         btn?.addEventListener("click", async () => {
-          const text = `We're keeping ${btn.dataset.name} on Recurday. Open this link (no app needed):\n${btn.dataset.url}`;
-          const ok = await copyText(text);
-          btn.textContent = ok ? "Copied — ready to text" : "Copy failed, long-press the link instead";
+          await textToFamily({ url: btn.dataset.url, name: btn.dataset.name, button: btn });
         });
       }
     } catch (e) {
@@ -421,3 +465,278 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
   });
 }
+
+
+function postJson(url, body) {
+  return fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+const familyCreate = $("#family-create-form");
+if (familyCreate) {
+  familyCreate.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#family-create-error");
+    showError(err, "");
+    const btn = familyCreate.querySelector("button[type=submit]");
+    if (btn) btn.disabled = true;
+    try {
+      const res = await postJson("/api/family/create", {
+        name: $("#create-family-name").value,
+        passcode: $("#create-passcode").value,
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Could not create that family login.");
+      location.href = body.calendar_path || "/calendar";
+    } catch (e) {
+      showError(err, e.message);
+      if (btn) btn.disabled = false;
+    }
+  });
+}
+
+const familyLogin = $("#family-login-form");
+if (familyLogin) {
+  familyLogin.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#family-login-error");
+    showError(err, "");
+    const btn = familyLogin.querySelector("button[type=submit]");
+    if (btn) btn.disabled = true;
+    try {
+      const res = await postJson("/api/family/login", {
+        name: $("#login-family-name").value,
+        passcode: $("#login-passcode").value,
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "That family name or passcode didn't work.");
+      location.href = body.calendar_path || "/calendar";
+    } catch (e) {
+      showError(err, e.message);
+      if (btn) btn.disabled = false;
+    }
+  });
+}
+
+const claimForm = $("#claim-form");
+if (claimForm) {
+  claimForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#claim-error");
+    showError(err, "");
+    const btn = claimForm.querySelector("button[type=submit]");
+    if (btn) btn.disabled = true;
+    try {
+      const payload = { t: claimForm.dataset.token || tokenFromPath() };
+      if (claimForm.dataset.loggedIn !== "1") {
+        payload.name = $("#claim-name")?.value;
+        payload.passcode = $("#claim-passcode")?.value;
+      }
+      const res = await postJson("/api/family/claim", payload);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Could not set up that family login.");
+      location.href = body.calendar_path || "/calendar";
+    } catch (e) {
+      showError(err, e.message);
+      if (btn) btn.disabled = false;
+    }
+  });
+}
+
+const calCreate = $("#calendar-create-form");
+if (calCreate) {
+  calCreate.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#calendar-create-error");
+    showError(err, "");
+    const btn = calCreate.querySelector("button[type=submit]");
+    if (btn) btn.disabled = true;
+    try {
+      const res = await postJson("/api/family/traditions", {
+        name: $("#cal-name").value,
+        practice_note: $("#cal-practice").value,
+        date: calCreate.querySelector("[name=date]").value,
+        recur_type: $("#cal-repeat").value,
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Could not create that tradition.");
+      location.href = body.tradition_path || "/calendar";
+    } catch (e) {
+      showError(err, e.message);
+      if (btn) btn.disabled = false;
+    }
+  });
+}
+
+const passForm = $("#passcode-form");
+if (passForm) {
+  passForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#passcode-error");
+    const ok = $("#passcode-ok");
+    showError(err, "");
+    ok?.classList.add("hidden");
+    try {
+      const res = await postJson("/api/family/passcode", {
+        current_passcode: $("#current_passcode").value,
+        new_passcode: $("#new_passcode").value,
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Could not change that passcode.");
+      passForm.reset();
+      ok?.classList.remove("hidden");
+    } catch (e) {
+      showError(err, e.message);
+    }
+  });
+}
+
+const copyIcs = $("#copy-ics");
+if (copyIcs) {
+  copyIcs.addEventListener("click", async () => {
+    const ok = await copyText(copyIcs.dataset.url || "");
+    copyIcs.textContent = ok ? "Subscribe link copied" : "Copy failed — use the link above";
+  });
+}
+
+const rotateIcs = $("#rotate-ics");
+if (rotateIcs) {
+  rotateIcs.addEventListener("click", async () => {
+    const box = $("#ics-result");
+    try {
+      const res = await postJson("/api/family/calendar-link", {});
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Could not make that subscribe link.");
+      if (box) {
+        box.innerHTML = `<div class="notice"><p class="ok">Here's a fresh private subscribe link. The previous one no longer works.</p>
+          <div class="links"><p><a href="${body.ics_path}">${body.ics_url}</a></p></div>
+          <button class="btn" type="button" id="copy-ics" data-url="${body.ics_url}">Copy subscribe link</button></div>`;
+        const btn = document.getElementById("copy-ics");
+        btn?.addEventListener("click", async () => {
+          const ok = await copyText(btn.dataset.url || "");
+          btn.textContent = ok ? "Subscribe link copied" : "Copy failed — use the link above";
+        });
+      }
+    } catch (e) {
+      if (box) box.innerHTML = `<p class="error">${e.message}</p>`;
+    }
+  });
+}
+
+function setupYearsPlayer() {
+  const btn = $("#play-years");
+  const dataNode = $("#years-data");
+  if (!btn || !dataNode) return;
+  let years;
+  try { years = JSON.parse(dataNode.textContent || "[]"); } catch { years = []; }
+  if (!Array.isArray(years) || !years.length) return;
+
+  const frames = [];
+  for (const year of years) {
+    frames.push({ type: "year", year: year.year, note: year.note || "" });
+    for (const photo of year.photos || []) frames.push({ type: "photo", year: year.year, ...photo });
+  }
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const YEAR_MS = reduce ? 0 : 1400;
+  const PHOTO_MS = reduce ? 0 : 3500;
+  let index = 0;
+  let timer = 0;
+  let playing = !reduce;
+  let overlay;
+
+  function stopTimer() {
+    if (timer) clearTimeout(timer);
+    timer = 0;
+  }
+
+  function schedule() {
+    stopTimer();
+    if (!playing) return;
+    const frame = frames[index];
+    const wait = frame.type === "year" ? YEAR_MS : PHOTO_MS;
+    if (!wait) return;
+    timer = setTimeout(() => { show(index + 1); }, wait);
+  }
+
+  function show(i) {
+    if (i < 0) i = 0;
+    if (i >= frames.length) {
+      playing = false;
+      stopTimer();
+      i = frames.length - 1;
+    }
+    index = i;
+    const frame = frames[i];
+    const stage = overlay.querySelector(".yp-stage");
+    const playBtn = overlay.querySelector("[data-yp=play]");
+    if (frame.type === "year") {
+      stage.innerHTML = `<h2 class="yp-year">${frame.year}</h2>${frame.note ? `<p class="yp-note"></p>` : ""}`;
+      const note = stage.querySelector(".yp-note");
+      if (note) note.textContent = frame.note;
+    } else if ((frame.mime || "").startsWith("video/")) {
+      stage.innerHTML = `<p class="yp-year">${frame.year}</p><video controls playsinline autoplay src=""></video>`;
+      stage.querySelector("video").src = frame.url;
+    } else {
+      stage.innerHTML = `<p class="yp-year">${frame.year}</p><img alt="" src="">`;
+      stage.querySelector("img").src = frame.url;
+    }
+    if (playBtn) playBtn.textContent = playing ? "Pause" : "Play";
+    schedule();
+  }
+
+  function close() {
+    stopTimer();
+    overlay?.remove();
+    overlay = null;
+    document.body.style.overflow = "";
+  }
+
+  function open() {
+    overlay = document.createElement("div");
+    overlay.className = "years-player";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", "Through the years");
+    overlay.innerHTML = `<button class="yp-close" type="button" data-yp="close">Close</button>
+      <div class="yp-stage"></div>
+      <div class="yp-controls">
+        <button class="btn secondary" type="button" data-yp="prev">Previous</button>
+        <button class="btn" type="button" data-yp="play">Pause</button>
+        <button class="btn secondary" type="button" data-yp="next">Next</button>
+      </div>`;
+    document.body.append(overlay);
+    document.body.style.overflow = "hidden";
+    overlay.addEventListener("click", (event) => {
+      const act = event.target.closest("[data-yp]")?.dataset.yp;
+      if (act === "close") close();
+      if (act === "prev") { playing = false; show(index - 1); }
+      if (act === "next") { playing = false; show(index + 1); }
+      if (act === "play") {
+        playing = !playing;
+        if (playing) show(index + 1);
+        else {
+          stopTimer();
+          const playBtn = overlay.querySelector("[data-yp=play]");
+          if (playBtn) playBtn.textContent = "Play";
+        }
+      }
+    });
+    document.addEventListener("keydown", onKey);
+    function onKey(event) {
+      if (!overlay) return;
+      if (event.key === "Escape") { close(); document.removeEventListener("keydown", onKey); }
+      if (event.key === "ArrowRight") { playing = false; show(index + 1); }
+      if (event.key === "ArrowLeft") { playing = false; show(index - 1); }
+    }
+    index = 0;
+    playing = !reduce;
+    show(0);
+  }
+
+  btn.addEventListener("click", open);
+}
+
+setupYearsPlayer();

@@ -161,6 +161,8 @@ input[type="number"],
 input[type="date"],
 input[type="file"],
 input[type="email"],
+input[type="password"],
+select,
 textarea {
   width: 100%;
   font: inherit;
@@ -365,4 +367,158 @@ hr.soft {
 
 @media (display-mode: standalone), (display-mode: minimal-ui), (display-mode: fullscreen) {
   .a2hs { display: none !important; }
+}
+
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 0.92rem;
+}
+.account-name {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 650;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout-form { margin: 0; }
+.text-btn {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.text-btn:hover { color: var(--ink); }
+
+.cal-card { padding: 0.85rem 0.7rem 1rem; }
+.cal-nav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+}
+.cal-title { margin: 0; text-align: center; font-size: 1.15rem; }
+.cal-nav-btn { width: auto; min-height: 2.4rem; margin-top: 0; padding: 0.4rem 0.65rem; font-size: 0.9rem; }
+.cal-nav-btn:first-child { justify-self: start; }
+.cal-nav-btn:last-child { justify-self: end; }
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.cal-dow {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--muted);
+  padding: 0.2rem 0;
+}
+.cal-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  min-height: 3.5rem;
+  padding: 0.22rem 0.2rem 0.3rem;
+  border-radius: 0.45rem;
+  background: #fff;
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid transparent;
+  overflow: hidden;
+}
+.cal-day.outside { background: transparent; pointer-events: none; }
+.cal-day.today { outline: 2px solid var(--ink); outline-offset: -1px; }
+.cal-num {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: inherit;
+  text-decoration: none;
+  align-self: start;
+}
+.cal-pill {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-size: 0.62rem;
+  font-weight: 650;
+  line-height: 1.2;
+  padding: 0.12rem 0.28rem;
+  border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--wash-red);
+  box-shadow: inset 3px 0 0 var(--hue-red);
+}
+.cal-pill.hue-red { background: var(--wash-red); box-shadow: inset 3px 0 0 var(--hue-red); }
+.cal-pill.hue-orange { background: var(--wash-orange); box-shadow: inset 3px 0 0 var(--hue-orange); }
+.cal-pill.hue-yellow { background: var(--wash-yellow); box-shadow: inset 3px 0 0 var(--hue-yellow); }
+.cal-pill.hue-green { background: var(--wash-green); box-shadow: inset 3px 0 0 var(--hue-green); }
+.cal-pill.hue-blue { background: var(--wash-blue); box-shadow: inset 3px 0 0 var(--hue-blue); }
+.cal-pill.hue-indigo { background: var(--wash-indigo); box-shadow: inset 3px 0 0 var(--hue-indigo); }
+.cal-pill.hue-violet { background: var(--wash-violet); box-shadow: inset 3px 0 0 var(--hue-violet); }
+
+.upcoming { list-style: none; padding: 0; margin: 0.3rem 0 0; }
+.upcoming li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; margin: 0 0 0.55rem; }
+.upcoming .muted, .muted { color: var(--muted); font-size: 0.88rem; }
+
+.years-player {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #1c1813;
+  color: var(--paper);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem 1.2rem max(1.2rem, env(safe-area-inset-bottom));
+}
+.years-player .yp-year {
+  font-family: var(--serif);
+  font-size: 2.4rem;
+  margin: 0;
+}
+.years-player .yp-note { color: #d9cbb8; text-align: center; max-width: 28rem; }
+.years-player img, .years-player video {
+  max-width: min(100%, 40rem);
+  max-height: 70dvh;
+  width: auto;
+  height: auto;
+  border-radius: 0.8rem;
+  background: #2a2318;
+}
+.yp-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  width: min(100%, 22rem);
+}
+.yp-controls .btn { margin-top: 0; min-height: 2.6rem; }
+.yp-close {
+  position: absolute;
+  top: max(0.7rem, env(safe-area-inset-top));
+  right: 0.8rem;
+  border: 0;
+  background: none;
+  color: var(--paper);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .years-player * { transition: none !important; }
 }

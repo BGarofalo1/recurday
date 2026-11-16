@@ -1,4 +1,8 @@
 import { mediaStore } from "./storage.js";
+import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf } from "./http.js";
+import { hueOf, parseTiming, bindRule, describeRule } from "./calendar.js";
+import { sha256hex, randomToken } from "./auth.js";
+import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, canClaimRole } from "./family.js";
 
 const NAME_MAX = 80;
 const TIMING_MAX = 200;
@@ -12,14 +16,6 @@ const YEAR_MAX = 2100;
 
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
-
-const SECURITY = {
-  "X-Robots-Tag": "noindex, nofollow",
-  "Referrer-Policy": "no-referrer",
-  "X-Content-Type-Options": "nosniff",
-  "Content-Security-Policy":
-    "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'",
-};
 
 export default {
   async fetch(request, env) {
@@ -40,11 +36,20 @@ async function handle(request, env) {
     return new Response(null, { status: 204, headers: SECURITY });
   }
 
+  if (path.startsWith("/api/family/")) return handleFamilyApi(request, env, url);
   if (path.startsWith("/api/")) return api(request, env, url);
   if (path.startsWith("/media/")) return media(request, env, url);
   if (path.startsWith("/t/")) return traditionPage(request, env, url, "household");
   if (path.startsWith("/a/")) return traditionPage(request, env, url, "admin");
   if (path.startsWith("/s/")) return traditionPage(request, env, url, "share");
+  if (path.startsWith("/f/")) return familyTraditionPage(request, env, url);
+  if (path === "/calendar") return calendarPage(request, env, url);
+  if (path.startsWith("/cal/")) return calendarFeed(request, env, url);
+  if (path.startsWith("/family/export")) return familyExport(request, env, url);
+
+  if ((path === "/" || path === "/index.html") && request.method === "GET" && await familyFromRequest(request, env)) {
+    return new Response(null, { status: 303, headers: { ...SECURITY, location: "/calendar" } });
+  }
 
   if (path === "/sw.js") {
     return serveAsset(request, env, "/sw.js", {
@@ -89,20 +94,6 @@ async function api(request, env, url) {
   return json({ error: "Not found." }, 404);
 }
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8", ...SECURITY },
-  });
-}
-
-function html(body, status = 200) {
-  return new Response(body, {
-    status,
-    headers: { "content-type": "text/html; charset=utf-8", ...SECURITY },
-  });
-}
-
 async function serveAsset(request, env, path, extraHeaders = {}) {
   if (!env.ASSETS) return new Response("Not found", { status: 404, headers: SECURITY });
   const first = new URL(path, request.url);
@@ -120,42 +111,6 @@ async function serveAsset(request, env, path, extraHeaders = {}) {
   for (const [k, v] of Object.entries(SECURITY)) headers.set(k, v);
   for (const [k, v] of Object.entries(extraHeaders)) headers.set(k, v);
   return new Response(res.body, { status: res.status, headers });
-}
-
-function originOf(request) {
-  return new URL(request.url).origin;
-}
-
-async function sha256hex(value) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function randomToken() {
-  return base64url(crypto.getRandomValues(new Uint8Array(18)));
-}
-
-function base64url(bytes) {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function clip(s, max) {
-  return String(s ?? "").trim().slice(0, max);
-}
-
-function esc(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function yearOk(year) {
@@ -205,6 +160,20 @@ async function resolve(env, token) {
   return { role: "share", tradition, share, token };
 }
 
+async function resolveRequest(request, env, body, url) {
+  const token = tokenFrom(request, body, url);
+  if (token) return resolve(env, token);
+  const family = await familyFromRequest(request, env);
+  if (!family) return null;
+  const tid = String(body?.tradition_id || url?.searchParams.get("tradition_id") || "").trim();
+  if (!tid) return { role: "family", family, tradition: null, share: null, token: "" };
+  const tradition = await env.DB.prepare(
+    "SELECT * FROM traditions WHERE id = ? AND family_id = ?"
+  ).bind(tid, family.id).first();
+  if (!tradition) return null;
+  return { role: "family", family, tradition, share: null, token: "" };
+}
+
 async function loadDays(env, traditionId, yearsPolicy, includeMedia) {
   let days = (await env.DB.prepare(
     "SELECT * FROM days WHERE tradition_id = ? ORDER BY year DESC"
@@ -244,20 +213,21 @@ async function listShares(env, traditionId) {
 async function present(env, auth, origin) {
   const { role, tradition, share, token } = auth;
   const accepted = role !== "share" || Boolean(share.accepted_at);
-  const canViewMedia = role === "admin" || role === "household" || accepted;
+  const canViewMedia = role === "admin" || role === "household" || role === "family" || accepted;
   const yearsPolicy = role === "share" ? share.years_policy : "all";
   const days = canViewMedia ? await loadDays(env, tradition.id, yearsPolicy, true) : [];
-  const shares = role === "admin" ? await listShares(env, tradition.id) : [];
+  const shares = (role === "admin" || role === "family") ? await listShares(env, tradition.id) : [];
   return {
     role,
     accepted,
-    can_upload: role === "admin" || role === "household",
-    can_admin: role === "admin",
+    can_upload: role === "admin" || role === "household" || role === "family",
+    can_admin: role === "admin" || role === "family",
     tradition: {
       id: tradition.id,
       name: tradition.name,
       timing_note: tradition.timing_note,
       practice_note: tradition.practice_note,
+      family_id: tradition.family_id || "",
     },
     share: share ? { id: share.id, label: share.label, accepted: Boolean(share.accepted_at) } : null,
     shares,
@@ -268,7 +238,7 @@ async function present(env, auth, origin) {
       media: d.media.map((m) => ({
         id: m.id,
         mime: m.mime,
-        url: `/media/${m.id}?t=${encodeURIComponent(token)}`,
+        url: token ? `/media/${m.id}?t=${encodeURIComponent(token)}` : `/media/${m.id}`,
       })),
     })),
     origin,
@@ -285,11 +255,20 @@ async function createTradition(request, env) {
   const id = crypto.randomUUID();
   const household = randomToken();
   const admin = randomToken();
+  const family = await familyFromRequest(request, env);
+  const rule = parseTiming(timing_note);
+  const bound = bindRule(rule);
   await env.DB.prepare(
     `INSERT INTO traditions
-      (id, name, timing_note, practice_note, created_at, household_token_hash, admin_token_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(id, name, timing_note, practice_note, nowIso(), await sha256hex(household), await sha256hex(admin)).run();
+      (id, name, timing_note, practice_note, created_at, household_token_hash, admin_token_hash,
+       family_id, recur_type, recur_month, recur_day, recur_nth, recur_weekday)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    id, name, timing_note, practice_note, nowIso(),
+    await sha256hex(household), await sha256hex(admin),
+    family ? family.id : null,
+    bound.recur_type, bound.recur_month, bound.recur_day, bound.recur_nth, bound.recur_weekday
+  ).run();
 
   const origin = originOf(request);
   const payload = {
@@ -301,24 +280,26 @@ async function createTradition(request, env) {
     admin_path: `/a/${admin}`,
     household_url: `${origin}/t/${household}`,
     admin_url: `${origin}/a/${admin}`,
+    tradition_path: family ? `/f/${id}` : "",
   };
   const ctype = request.headers.get("content-type") || "";
   if (!ctype.includes("application/json")) {
+    if (family) return Response.redirect(`${origin}/f/${id}`, 303);
     return Response.redirect(`${origin}/a/${admin}?new=${encodeURIComponent(household)}`, 303);
   }
   return json(payload, 201);
 }
 
 async function traditionJson(request, env, url) {
-  const auth = await resolve(env, tokenFrom(request, {}, url));
-  if (!auth) return json({ error: "We couldn't find that link." }, 404);
+  const auth = await resolveRequest(request, env, {}, url);
+  if (!auth || !auth.tradition) return json({ error: "We couldn't find that link." }, 404);
   return json(await present(env, auth, originOf(request)));
 }
 
 async function upsertDay(request, env) {
   const body = await readBody(request);
-  const auth = await resolve(env, tokenFrom(request, body));
-  if (!auth) return json({ error: "We couldn't find that link." }, 404);
+  const auth = await resolveRequest(request, env, body);
+  if (!auth || !auth.tradition) return json({ error: "We couldn't find that link." }, 404);
   if (auth.role === "share") return json({ error: "This invite is only for looking, not adding." }, 403);
   const year = Number(body.year);
   if (!yearOk(year)) return json({ error: "Please choose a valid year." }, 400);
@@ -355,8 +336,8 @@ async function upload(request, env) {
   }
   const fd = await request.formData();
   const body = Object.fromEntries([...fd.entries()].filter(([k]) => k !== "file"));
-  const auth = await resolve(env, tokenFrom(request, body));
-  if (!auth) return json({ error: "We couldn't find that link." }, 404);
+  const auth = await resolveRequest(request, env, body);
+  if (!auth || !auth.tradition) return json({ error: "We couldn't find that link." }, 404);
   if (auth.role === "share") return json({ error: "This invite is only for looking, not adding." }, 403);
   const year = Number(body.year);
   if (!yearOk(year)) return json({ error: "Please choose a valid year." }, 400);
@@ -391,14 +372,15 @@ async function upload(request, env) {
 
 async function media(request, env, url) {
   const id = url.pathname.slice("/media/".length).split("/")[0];
-  const auth = await resolve(env, tokenFrom(request, {}, url));
-  if (!auth || !id) return new Response("Not found", { status: 404, headers: SECURITY });
+  if (!id) return new Response("Not found", { status: 404, headers: SECURITY });
   const row = await env.DB.prepare(
     `SELECT media.*, days.year, days.tradition_id
      FROM media JOIN days ON days.id = media.day_id
      WHERE media.id = ?`
   ).bind(id).first();
-  if (!row || row.tradition_id !== auth.tradition.id) {
+  if (!row) return new Response("Not found", { status: 404, headers: SECURITY });
+  const auth = await resolveRequest(request, env, { tradition_id: row.tradition_id }, url);
+  if (!auth || !auth.tradition || auth.tradition.id !== row.tradition_id) {
     return new Response("Not found", { status: 404, headers: SECURITY });
   }
   if (auth.role === "share") {
@@ -423,9 +405,9 @@ async function media(request, env, url) {
 
 async function createShare(request, env) {
   const body = await readBody(request);
-  const auth = await resolve(env, tokenFrom(request, body));
-  if (!auth) return json({ error: "We couldn't find that link." }, 404);
-  if (auth.role !== "admin") return json({ error: "Only the keeper link can invite another family." }, 403);
+  const auth = await resolveRequest(request, env, body);
+  if (!auth || !auth.tradition) return json({ error: "We couldn't find that link." }, 404);
+  if (auth.role !== "admin" && auth.role !== "family") return json({ error: "Only your family or the keeper link can invite another family." }, 403);
   const label = clip(body.label, LABEL_MAX);
   if (!label) return json({ error: "Please name the family you're inviting." }, 400);
   const token = randomToken();
@@ -446,9 +428,9 @@ async function createShare(request, env) {
 
 async function revokeShare(request, env) {
   const body = await readBody(request);
-  const auth = await resolve(env, tokenFrom(request, body));
-  if (!auth) return json({ error: "We couldn't find that link." }, 404);
-  if (auth.role !== "admin") return json({ error: "Only the keeper link can stop a share." }, 403);
+  const auth = await resolveRequest(request, env, body);
+  if (!auth || !auth.tradition) return json({ error: "We couldn't find that link." }, 404);
+  if (auth.role !== "admin" && auth.role !== "family") return json({ error: "Only your family or the keeper link can stop a share." }, 403);
   const share = await env.DB.prepare(
     "SELECT * FROM shares WHERE id = ? AND tradition_id = ?"
   ).bind(body.share_id, auth.tradition.id).first();
@@ -461,7 +443,7 @@ async function revokeShare(request, env) {
 
 async function acceptShare(request, env) {
   const body = await readBody(request);
-  const auth = await resolve(env, tokenFrom(request, body, new URL(request.url)));
+  const auth = await resolveRequest(request, env, body, new URL(request.url));
   if (!auth || auth.role !== "share") return json({ error: "We couldn't find that invite." }, 404);
   if (!auth.share.accepted_at) {
     await env.DB.prepare(
@@ -477,7 +459,7 @@ async function acceptShare(request, env) {
 
 async function copyTradition(request, env) {
   const body = await readBody(request);
-  const auth = await resolve(env, tokenFrom(request, body, new URL(request.url)));
+  const auth = await resolveRequest(request, env, body, new URL(request.url));
   if (!auth || auth.role !== "share") return json({ error: "We couldn't find that invite." }, 404);
   if (!auth.share.accepted_at) return json({ error: "Please accept the invite first." }, 403);
   const id = crypto.randomUUID();
@@ -513,9 +495,9 @@ async function copyTradition(request, env) {
 
 async function rotateHousehold(request, env) {
   const body = await readBody(request);
-  const auth = await resolve(env, tokenFrom(request, body));
-  if (!auth) return json({ error: "We couldn't find that link." }, 404);
-  if (auth.role !== "admin") return json({ error: "Only the keeper link can make a fresh family link." }, 403);
+  const auth = await resolveRequest(request, env, body);
+  if (!auth || !auth.tradition) return json({ error: "We couldn't find that link." }, 404);
+  if (auth.role !== "admin" && auth.role !== "family") return json({ error: "Only your family or the keeper link can make a fresh family link." }, 403);
   const household = randomToken();
   await env.DB.prepare(
     "UPDATE traditions SET household_token_hash = ? WHERE id = ?"
@@ -530,6 +512,7 @@ async function rotateHousehold(request, env) {
 async function traditionPage(request, env, url, expectedRole) {
   const token = decodeURIComponent(url.pathname.split("/")[2] || "");
   const auth = await resolve(env, token);
+  const family = await familyFromRequest(request, env);
   if (!auth || auth.role !== expectedRole) {
     return html(pageShell({
       title: "Recurday",
@@ -537,9 +520,38 @@ async function traditionPage(request, env, url, expectedRole) {
       ogTitle: "Recurday",
       ogDescription: "A private family tradition link.",
       origin: originOf(request),
+      nav: familyNav(family),
       body: `<h1>This link isn't valid.</h1><p class="lead">It may have been typed wrong, or the family who sent it may have stopped the share.</p>`,
     }), 404);
   }
+  return renderTraditionResponse(request, env, auth, url, { newHousehold: expectedRole === "admin" ? url.searchParams.get("new") : "", family, token });
+}
+
+async function familyTraditionPage(request, env, url) {
+  const family = await familyFromRequest(request, env);
+  if (!family) {
+    return new Response(null, { status: 303, headers: { ...SECURITY, location: "/" } });
+  }
+  const id = url.pathname.split("/")[2] || "";
+  const tradition = await env.DB.prepare(
+    "SELECT * FROM traditions WHERE id = ? AND family_id = ?"
+  ).bind(id, family.id).first();
+  if (!tradition) {
+    return html(pageShell({
+      title: "Recurday",
+      description: "This tradition isn't on your calendar.",
+      ogTitle: "Recurday",
+      ogDescription: "A private family tradition.",
+      origin: originOf(request),
+      nav: familyNav(family),
+      body: `<h1>We couldn't find that tradition.</h1><p class="lead"><a href="/calendar">Back to our calendar</a></p>`,
+    }), 404);
+  }
+  const auth = { role: "family", tradition, share: null, token: "", family };
+  return renderTraditionResponse(request, env, auth, url, { newHousehold: "", family, token: "" });
+}
+
+async function renderTraditionResponse(request, env, auth, url, { newHousehold, family, token }) {
   const yearParam = Number(url.searchParams.get("year"));
   const data = await present(env, auth, originOf(request));
   const years = data.days.map((d) => d.year);
@@ -547,8 +559,7 @@ async function traditionPage(request, env, url, expectedRole) {
   let selected = yearOk(yearParam) ? yearParam : (years[0] || currentYear);
   if (!years.includes(selected) && years.length && auth.role === "share") selected = years[0];
   const selectedDay = data.days.find((d) => d.year === selected);
-  const newHousehold = expectedRole === "admin" ? url.searchParams.get("new") : "";
-  const body = renderTradition(data, { selected, selectedDay, currentYear, token, newHousehold });
+  const body = renderTradition(data, { selected, selectedDay, currentYear, token, newHousehold, family });
   const when = data.tradition.timing_note || "A family tradition";
   return html(pageShell({
     title: `${data.tradition.name} — Recurday`,
@@ -557,62 +568,18 @@ async function traditionPage(request, env, url, expectedRole) {
     ogDescription: [when, data.tradition.practice_note].filter(Boolean).join(" — ").slice(0, 180),
     origin: originOf(request),
     hue: hueOf(data.tradition.name),
+    nav: familyNav(family),
     body,
   }));
 }
 
-function hueOf(name) {
-  const s = String(name || "");
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return ["red", "orange", "yellow", "green", "blue", "indigo", "violet"][h % 7];
-}
-
-function pageShell({ title, description, ogTitle, ogDescription, origin, body, hue }) {
-  const wrapClass = hue ? `wrap hue-${esc(hue)}` : "wrap";
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="robots" content="noindex, nofollow">
-  <meta name="referrer" content="no-referrer">
-  <title>${esc(title)}</title>
-  <meta name="description" content="${esc(description)}">
-  <meta property="og:title" content="${esc(ogTitle)}">
-  <meta property="og:description" content="${esc(ogDescription)}">
-  <meta property="og:type" content="website">
-  <meta property="og:image" content="${esc(origin)}/og.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="theme-color" content="#f6efe4">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Recurday">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="icon" href="/favicon.png" type="image/png">
-  <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-  <div class="${wrapClass}">
-    <header class="top">
-      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="36" height="22" alt="">Recurday</a>
-    </header>
-    ${body}
-  </div>
-  <script src="/app.js" defer></script>
-</body>
-</html>`;
-}
-
-function renderTradition(data, { selected, selectedDay, currentYear, token, newHousehold }) {
+function renderTradition(data, { selected, selectedDay, currentYear, token, newHousehold, family }) {
   const { tradition, role, accepted, can_upload, can_admin, days } = data;
   if (role === "share" && !accepted) {
     return `
       <p class="eyebrow">A family invited you</p>
       <h1>${esc(tradition.name)}</h1>
-      <p class="lead">They wanted to show you a tradition they keep. Accept to look — their photos stay private until you do.</p>
+      <p class="lead">They wanted to pass this day on to you. Accept to look — their photos stay private until you do.</p>
       <div class="card">
         <p><strong>When:</strong> ${esc(tradition.timing_note || "They haven't written when it happens yet.")}</p>
         ${tradition.practice_note ? `<p class="practice">${esc(tradition.practice_note)}</p>` : ""}
@@ -621,7 +588,8 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
           <button class="btn" type="submit">Accept and view</button>
           <p class="error hidden" id="accept-error"></p>
         </form>
-      </div>`;
+      </div>
+      ${renderStartYourOwn()}`;
   }
 
   const yearSet = new Set(days.map((d) => d.year));
@@ -630,10 +598,11 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
     yearSet.add(currentYear);
   }
   const yearList = [...yearSet].sort((a, b) => b - a);
-  const prefix = role === "admin" ? "/a" : role === "share" ? "/s" : "/t";
+  const prefix = role === "family" ? `/f/${tradition.id}` : role === "admin" ? "/a" : role === "share" ? "/s" : "/t";
   const chips = yearList.map((y) => {
     const current = y === selected ? ' aria-current="true"' : "";
-    return `<a class="year" href="${esc(`${prefix}/${token}?year=${y}`)}"${current}>${y}</a>`;
+    const href = role === "family" ? `${prefix}?year=${y}` : `${prefix}/${token}?year=${y}`;
+    return `<a class="year" href="${esc(href)}"${current}>${y}</a>`;
   }).join("");
 
   const mediaHtml = (selectedDay?.media || []).map((m) =>
@@ -645,7 +614,7 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
   const upload = can_upload ? `
     <div class="card">
       <h2>This year</h2>
-      <form id="upload-form" data-token="${esc(token)}">
+      <form id="upload-form" data-token="${esc(token)}" data-tradition-id="${esc(tradition.id)}">
         <label for="year">Year</label>
         <input id="year" name="year" type="number" min="${YEAR_MIN}" max="${YEAR_MAX}" value="${esc(selected)}">
         <label for="observed_on">The date you kept it (optional)</label>
@@ -663,15 +632,16 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
 
   const shareBlock = role === "share" ? `
     <div class="card">
-      <h2>Start this tradition too</h2>
-      <p>This copies the name and how they do it — not their photos. You'll get your own links to fill with your family's days.</p>
+      <h2>Pass it on, in your own home</h2>
+      <p>This copies the name and how they do it — not their photos. You'll get your own day to keep, and you can fill it with your family's years.</p>
       <form id="copy-form" method="post" action="/api/shares/copy">
         <input type="hidden" name="t" value="${esc(token)}">
         <button class="btn moss" type="submit">Start this tradition too</button>
         <p class="error hidden" id="copy-error"></p>
       </form>
       <div id="copy-result" class="hidden"></div>
-    </div>` : "";
+    </div>
+    ${renderStartYourOwn()}` : "";
 
   return `
     <p class="eyebrow">${role === "share" ? "Shared with you" : "A family tradition"}</p>
@@ -680,11 +650,14 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
     ${tradition.practice_note ? `<div class="card"><p class="practice">${esc(tradition.practice_note)}</p></div>` : ""}
     ${renderFamilyLink(data, token, newHousehold)}
     <div class="years" aria-label="Years">${chips}</div>
-    ${mediaHtml ? `<div class="media-grid">${mediaHtml}</div>` : `<p class="empty">${can_upload ? "Nothing here for this year yet." : "Nothing has been added for this year."}</p>`}
+    ${mediaHtml ? `<div class="media-grid">${mediaHtml}</div>` : `<p class="empty">${can_upload ? "Nothing here for this year yet." : "Nothing has been added for this year yet."}</p>`}
+    ${renderThroughTheYears(days, role)}
     ${upload}
     ${shareBlock}
+    ${renderClaim(data, token, family)}
+    ${role === "family" ? `<p><a class="btn secondary" href="/family/export/${esc(tradition.id)}">Download this tradition</a></p>` : ""}
     ${can_admin ? renderAdmin(data, token) : ""}
-    <p class="foot">Private by default. No likes, no rankings, no public list of traditions.</p>`;
+    <p class="foot">Private by default. Kept together, not compared. No likes, no rankings, no public list of traditions.</p>`;
 }
 
 function renderFamilyLink(data, token, newHousehold) {
@@ -692,24 +665,24 @@ function renderFamilyLink(data, token, newHousehold) {
     const url = `${data.origin}/t/${token}`;
     return `
       <div class="actions">
-        <button class="btn" type="button" id="copy-household" data-url="${esc(url)}" data-name="${esc(data.tradition.name)}">Send to our family</button>
-        <p class="hint">Anyone with this link can add photos and rewatch. There is no app to install.</p>
+        <button class="btn" type="button" id="copy-household" data-url="${esc(url)}" data-name="${esc(data.tradition.name)}">Text this to family</button>
+        <p class="hint">Anyone with this link can add photos and rewatch, no app store and no login. Recurday spreads when you text a link.</p>
       </div>`;
   }
-  if (data.role !== "admin") return "";
+  if (data.role !== "admin" && data.role !== "family") return "";
   const fresh = newHousehold
     ? `<div class="notice">
-        <p class="ok">Save these links. We can't email them to you.</p>
+        <p class="ok">Save this link, then text it. That's how Recurday moves from home to home — not an app store.</p>
         <div class="links">
           <p><strong>Family link</strong> — text this one:<br><a href="/t/${esc(newHousehold)}">${esc(data.origin)}/t/${esc(newHousehold)}</a></p>
         </div>
-        <button class="btn" type="button" id="copy-household" data-url="${esc(data.origin)}/t/${esc(newHousehold)}" data-name="${esc(data.tradition.name)}">Send to our family</button>
+        <button class="btn" type="button" id="copy-household" data-url="${esc(data.origin)}/t/${esc(newHousehold)}" data-name="${esc(data.tradition.name)}">Text this to family</button>
       </div>`
-    : `<p class="hint">This is the keeper page. To text your family, use the family link you saved when you created this tradition. If you lost it, make a fresh one — the old family link will stop working.</p>`;
+    : `<p class="hint">To text your family, use the family link you saved when you created this tradition. If you lost it, make a fresh one — the old family link will stop working.</p>`;
   return `
     <div class="card">
       ${fresh}
-      <button class="btn secondary" type="button" id="rotate-household" data-token="${esc(token)}">Make a fresh family link</button>
+      <button class="btn secondary" type="button" id="rotate-household" data-token="${esc(token)}" data-tradition-id="${esc(data.tradition.id)}">Make a fresh family link</button>
       <div id="rotate-result"></div>
     </div>`;
 }
@@ -722,15 +695,75 @@ function renderAdmin(data, token) {
   }).join("");
   return `
     <div class="card" id="keeper">
-      <h2>Invite another family</h2>
-      <p>They'll see this tradition after they accept. They can start it too for themselves. You can stop the share at any time. Their invite is separate from your family's link.</p>
-      <form id="invite-form" data-token="${esc(token)}">
+      <h2>Pass it on</h2>
+      <p>Share this tradition idea with another family, as a gift — not a contest. They'll see it after they accept, and they can start it too for themselves. You can stop the share at any time.</p>
+      <form id="invite-form" data-token="${esc(token)}" data-tradition-id="${esc(data.tradition.id)}">
         <label for="label">Who is this for? (just so you remember)</label>
         <input id="label" name="label" type="text" maxlength="80" required placeholder="The Millers">
-        <button class="btn moss" type="submit">Create an invite link</button>
+        <button class="btn moss" type="submit">Create a pass-it-on link</button>
         <p class="error hidden" id="invite-error"></p>
       </form>
       <div id="invite-result"></div>
       ${rows}
+    </div>`;
+}
+
+function renderThroughTheYears(days, role) {
+  if (role === "share" && !days.length) return "";
+  const years = [...days].sort((a, b) => a.year - b.year).map((d) => ({
+    year: d.year,
+    note: d.note || "",
+    photos: (d.media || []).map((m) => ({ url: m.url, mime: m.mime })),
+  })).filter((d) => d.photos.length);
+  if (!years.length) return "";
+  return `
+    <div class="actions">
+      <button class="btn secondary" type="button" id="play-years">Through the years</button>
+    </div>
+    <script type="application/json" id="years-data">${JSON.stringify(years).replace(/</g, "\\u003c")}</script>`;
+}
+
+function renderStartYourOwn() {
+  return `
+    <div class="card" id="start-your-own">
+      <h2>Start your own family's traditions</h2>
+      <p>If this day meant something to you, you can keep days like it at home — given back to each other, year after year. Text a link. No app store.</p>
+      <a class="btn" href="/">Start your family's traditions</a>
+    </div>`;
+}
+
+function renderClaim(data, token, family) {
+  const { tradition, role } = data;
+  if (!canClaimRole(role)) return "";
+  if (tradition.family_id) {
+    if (family && family.id === tradition.family_id) {
+      return `<p class="hint"><a href="/calendar">This tradition is on our family calendar.</a></p>`;
+    }
+    return "";
+  }
+  if (family) {
+    return `
+      <div class="card" id="claim-card">
+        <h2>Add this to our calendar</h2>
+        <p>Keep this tradition with the rest of ${esc(family.name)}'s days, so everyone at home can find it together.</p>
+        <form id="claim-form" data-token="${esc(token)}" data-logged-in="1">
+          <button class="btn" type="submit">Add to our family calendar</button>
+          <p class="error hidden" id="claim-error"></p>
+        </form>
+      </div>`;
+  }
+  return `
+    <div class="card" id="claim-card">
+      <h2>Set up your family login</h2>
+      <p>One family name and one passcode, shared with everyone at home. You'll get a calendar of the days you keep together.</p>
+      <form id="claim-form" data-token="${esc(token)}">
+        <label for="claim-name">Family name</label>
+        <input id="claim-name" name="family_name" type="text" required minlength="2" maxlength="40" autocomplete="username">
+        <label for="claim-passcode">Passcode (at least 8 characters)</label>
+        <input id="claim-passcode" name="passcode" type="password" required minlength="8" autocomplete="new-password">
+        <p class="hint">If you already have a family login, enter it here to add this tradition to your calendar.</p>
+        <button class="btn" type="submit">Set up our family login</button>
+        <p class="error hidden" id="claim-error"></p>
+      </form>
     </div>`;
 }
