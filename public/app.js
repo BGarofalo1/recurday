@@ -1,9 +1,10 @@
 const PHOTO_MAX = 2 * 1024 * 1024;
 const PHOTO_EDGE = 1600;
+const PHOTO_THUMB = 256;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
-async function shrinkImage(file) {
+async function shrinkImageTo(file, edge, quality) {
   if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
   let bitmap;
   try {
@@ -12,8 +13,8 @@ async function shrinkImage(file) {
     return file;
   }
   let { width: w, height: h } = bitmap;
-  if (w > PHOTO_EDGE || h > PHOTO_EDGE) {
-    const scale = PHOTO_EDGE / Math.max(w, h);
+  if (w > edge || h > edge) {
+    const scale = edge / Math.max(w, h);
     w = Math.round(w * scale);
     h = Math.round(h * scale);
   }
@@ -23,7 +24,7 @@ async function shrinkImage(file) {
   const ctx = canvas.getContext("2d");
   ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close?.();
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
   if (!blob) return file;
   const smaller = blob.size < file.size || file.type !== "image/jpeg";
   if (!smaller && blob.size >= file.size) return file;
@@ -31,18 +32,45 @@ async function shrinkImage(file) {
   return new File([blob], name, { type: "image/jpeg" });
 }
 
-async function prepareFile(file) {
+async function shrinkImage(file) {
+  return shrinkImageTo(file, PHOTO_EDGE, 0.82);
+}
+
+async function prepareFile(file, edge = PHOTO_EDGE) {
   if (file.type.startsWith("video/")) {
     throw new Error("Video coming soon.");
   }
   if (!file.type.startsWith("image/")) {
     throw new Error("Please choose a photo.");
   }
-  const out = await shrinkImage(file);
+  const out = await shrinkImageTo(file, edge, edge <= PHOTO_THUMB ? 0.8 : 0.82);
   if (out.size > PHOTO_MAX) {
     throw new Error("That photo is still too large after shrinking. Try a smaller one.");
   }
   return out;
+}
+
+async function appendCoverFiles(fd, file) {
+  const ready = await prepareFile(file);
+  fd.set("file", ready, ready.name);
+  const thumb = await prepareFile(file, PHOTO_THUMB);
+  if (thumb && thumb.size) fd.set("thumb", thumb, thumb.name.replace(/(\.[^.]+)?$/, ".thumb.jpg"));
+  return fd;
+}
+
+async function postCover({ traditionId, file, mediaId, clear }) {
+  if (file) {
+    const fd = new FormData();
+    fd.set("tradition_id", traditionId);
+    await appendCoverFiles(fd, file);
+    return fetch("/api/family/cover", { method: "POST", body: fd, credentials: "same-origin" });
+  }
+  return fetch("/api/family/cover", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ tradition_id: traditionId, media_id: mediaId || "", clear: clear ? "1" : "" }),
+  });
 }
 
 async function copyText(text) {
@@ -563,6 +591,12 @@ if (calCreate) {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not create that tradition.");
+      const coverFile = $("#cal-cover")?.files?.[0];
+      if (coverFile && body.id) {
+        const coverRes = await postCover({ traditionId: body.id, file: coverFile });
+        const coverBody = await coverRes.json().catch(() => ({}));
+        if (!coverRes.ok) throw new Error(coverBody.error || "The tradition was created, but the cover didn't upload.");
+      }
       location.href = body.tradition_path || "/calendar";
     } catch (e) {
       showError(err, e.message);
@@ -626,15 +660,83 @@ if (rotateIcs) {
   });
 }
 
+
+const coverForm = $("#cover-form");
+if (coverForm) {
+  const traditionId = coverForm.dataset.traditionId;
+  const err = $("#cover-error");
+  const status = $("#cover-status");
+  coverForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    showError(err, "");
+    if (status) status.textContent = "";
+    const file = $("#cover-file")?.files?.[0];
+    if (!file) {
+      showError(err, "Choose a photo first.");
+      return;
+    }
+    const btn = coverForm.querySelector("button[type=submit]");
+    if (btn) btn.disabled = true;
+    try {
+      if (status) status.textContent = "Shrinking the photo…";
+      const res = await postCover({ traditionId, file });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Could not use that photo as the cover.");
+      location.reload();
+    } catch (e) {
+      showError(err, e.message);
+      if (status) status.textContent = "";
+      if (btn) btn.disabled = false;
+    }
+  });
+  document.querySelectorAll(".cover-pick").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      showError(err, "");
+      btn.disabled = true;
+      try {
+        const res = await postCover({ traditionId, mediaId: btn.dataset.mediaId });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || "Could not use that photo as the cover.");
+        location.reload();
+      } catch (e) {
+        showError(err, e.message);
+        btn.disabled = false;
+      }
+    });
+  });
+  const clearBtn = $("#cover-clear");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", async () => {
+      showError(err, "");
+      clearBtn.disabled = true;
+      try {
+        const res = await postCover({ traditionId, clear: true });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || "Could not take the cover off.");
+        location.reload();
+      } catch (e) {
+        showError(err, e.message);
+        clearBtn.disabled = false;
+      }
+    });
+  }
+}
+
 function setupYearsPlayer() {
   const btn = $("#play-years");
   const dataNode = $("#years-data");
   if (!btn || !dataNode) return;
-  let years;
-  try { years = JSON.parse(dataNode.textContent || "[]"); } catch { years = []; }
-  if (!Array.isArray(years) || !years.length) return;
+  let payload;
+  try { payload = JSON.parse(dataNode.textContent || "[]"); } catch { payload = []; }
+  const years = Array.isArray(payload) ? payload : (payload.years || []);
+  const cover = Array.isArray(payload) ? null : payload.cover;
+  const hue = Array.isArray(payload) ? "" : (payload.hue || "");
+  const tradName = Array.isArray(payload) ? "" : (payload.name || "");
+  if ((!Array.isArray(years) || !years.length) && !cover) return;
 
   const frames = [];
+  if (cover && cover.url) frames.push({ type: "cover", url: cover.url, name: tradName });
+  else frames.push({ type: "cover-fallback", hue, name: tradName });
   for (const year of years) {
     frames.push({ type: "year", year: year.year, note: year.note || "" });
     for (const photo of year.photos || []) frames.push({ type: "photo", year: year.year, ...photo });
@@ -673,7 +775,15 @@ function setupYearsPlayer() {
     const frame = frames[i];
     const stage = overlay.querySelector(".yp-stage");
     const playBtn = overlay.querySelector("[data-yp=play]");
-    if (frame.type === "year") {
+    if (frame.type === "cover") {
+      stage.innerHTML = `<img class="yp-cover" alt="" src=""><p class="yp-year"></p>`;
+      stage.querySelector("img").src = frame.url;
+      if (frame.name) stage.querySelector(".yp-year").textContent = frame.name;
+    } else if (frame.type === "cover-fallback") {
+      const hueClass = frame.hue ? ` hue-${frame.hue}` : "";
+      stage.innerHTML = `<div class="yp-cover fallback${hueClass}" aria-hidden="true"></div><p class="yp-year"></p>`;
+      if (frame.name) stage.querySelector(".yp-year").textContent = frame.name;
+    } else if (frame.type === "year") {
       stage.innerHTML = `<h2 class="yp-year">${frame.year}</h2>${frame.note ? `<p class="yp-note"></p>` : ""}`;
       const note = stage.querySelector(".yp-note");
       if (note) note.textContent = frame.note;

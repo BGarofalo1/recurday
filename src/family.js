@@ -36,6 +36,7 @@ import {
 import { ZipBuilder, slugPart } from "./zip.js";
 import { json, html, esc, pageShell, familyNav, nowIso, clip, originOf, isSecureRequest, SECURITY } from "./http.js";
 import { mediaStore } from "./storage.js";
+import { PHOTO_MAX, PHOTO_TYPES, extForMime, coverUrls, isDedicatedCoverKey } from "./cover.js";
 
 const EXPORT_MAX = 40 * 1024 * 1024;
 const NAME_MAX = 80;
@@ -164,6 +165,7 @@ export async function handleFamilyApi(request, env, url) {
   if (request.method === "POST" && path === "/api/family/claim") return claimTradition(request, env);
   if (request.method === "POST" && path === "/api/family/traditions") return createFamilyTradition(request, env);
   if (request.method === "POST" && path === "/api/family/calendar-link") return rotateCalendarLink(request, env);
+  if (request.method === "POST" && path === "/api/family/cover") return setFamilyCover(request, env);
   return json({ error: "Not found." }, 404);
 }
 
@@ -390,6 +392,115 @@ async function createFamilyTradition(request, env) {
   }, 201);
 }
 
+
+async function removeDedicatedCover(env, tradition) {
+  const store = mediaStore(env);
+  if (isDedicatedCoverKey(tradition.cover_r2_key)) await store.remove(tradition.cover_r2_key);
+  if (isDedicatedCoverKey(tradition.cover_thumb_r2_key)) await store.remove(tradition.cover_thumb_r2_key);
+}
+
+async function setFamilyCover(request, env) {
+  const family = await familyFromRequest(request, env);
+  if (!family) return json({ error: "Please log in with your family name and passcode." }, 401);
+  const ctype = request.headers.get("content-type") || "";
+  let traditionId = "";
+  let mediaId = "";
+  let clear = false;
+  let file = null;
+  let thumb = null;
+  if (ctype.includes("multipart/form-data")) {
+    const fd = await request.formData();
+    traditionId = String(fd.get("tradition_id") || "").trim();
+    mediaId = String(fd.get("media_id") || "").trim();
+    clear = String(fd.get("clear") || "") === "1";
+    file = fd.get("file");
+    thumb = fd.get("thumb");
+  } else {
+    const body = await readBody(request);
+    traditionId = String(body.tradition_id || "").trim();
+    mediaId = String(body.media_id || "").trim();
+    clear = body.clear === true || body.clear === "1";
+  }
+  if (!traditionId) return json({ error: "We couldn't find that tradition." }, 404);
+  const tradition = await env.DB.prepare(
+    "SELECT * FROM traditions WHERE id = ? AND family_id = ?"
+  ).bind(traditionId, family.id).first();
+  if (!tradition) return json({ error: "We couldn't find that tradition." }, 404);
+
+  const clearSql = `UPDATE traditions SET cover_media_id = NULL, cover_r2_key = NULL, cover_mime = NULL,
+    cover_byte_size = NULL, cover_thumb_r2_key = NULL, cover_thumb_mime = NULL, cover_thumb_byte_size = NULL
+    WHERE id = ?`;
+
+  if (clear) {
+    await removeDedicatedCover(env, tradition);
+    await env.DB.prepare(clearSql).bind(tradition.id).run();
+    return json({ ok: true, cleared: true, url: "", thumb: "" });
+  }
+
+  if (mediaId) {
+    const row = await env.DB.prepare(
+      `SELECT media.* FROM media JOIN days ON days.id = media.day_id
+       WHERE media.id = ? AND days.tradition_id = ?`
+    ).bind(mediaId, tradition.id).first();
+    if (!row || !(row.mime || "").startsWith("image/")) {
+      return json({ error: "Please pick a photo already kept with this tradition." }, 400);
+    }
+    await removeDedicatedCover(env, tradition);
+    await env.DB.prepare(
+      `UPDATE traditions SET cover_media_id = ?, cover_r2_key = NULL, cover_mime = NULL,
+       cover_byte_size = NULL, cover_thumb_r2_key = NULL, cover_thumb_mime = NULL, cover_thumb_byte_size = NULL
+       WHERE id = ?`
+    ).bind(mediaId, tradition.id).run();
+    const urls = coverUrls({ ...tradition, cover_media_id: mediaId, cover_r2_key: null });
+    return json({ ok: true, media_id: mediaId, ...urls });
+  }
+
+  if (!file || typeof file === "string" || !file.size) {
+    return json({ error: "Choose a photo first." }, 400);
+  }
+  const mime = (file.type || "application/octet-stream").toLowerCase();
+  if (mime.startsWith("video/")) return json({ error: "Video coming soon." }, 400);
+  if (!PHOTO_TYPES.has(mime)) return json({ error: "Please choose a photo." }, 400);
+  if (file.size > PHOTO_MAX) return json({ error: "That photo is too large. Please keep it to about 2 MB." }, 400);
+
+  const usage = await env.DB.prepare(
+    `SELECT COALESCE(SUM(byte_size), 0) AS bytes
+     FROM media JOIN days ON days.id = media.day_id
+     WHERE days.tradition_id = ?`
+  ).bind(tradition.id).first();
+  const oldCover = isDedicatedCoverKey(tradition.cover_r2_key) ? Number(tradition.cover_byte_size || 0) : 0;
+  const oldThumb = isDedicatedCoverKey(tradition.cover_thumb_r2_key) ? Number(tradition.cover_thumb_byte_size || 0) : 0;
+  const thumbSize = (thumb && typeof thumb !== "string" && thumb.size) ? thumb.size : 0;
+  if (Number(usage?.bytes || 0) - oldCover - oldThumb + file.size + thumbSize > 100 * PHOTO_MAX) {
+    return json({ error: "This tradition has reached its Day-1 storage limit." }, 400);
+  }
+
+  await removeDedicatedCover(env, tradition);
+  const store = mediaStore(env);
+  const id = crypto.randomUUID();
+  const key = `${tradition.id}/cover/${id}.${extForMime(mime)}`;
+  await store.put(key, file, { contentType: mime });
+  let thumbKey = null;
+  let thumbMime = null;
+  let thumbBytes = null;
+  if (thumb && typeof thumb !== "string" && thumb.size) {
+    const tmime = (thumb.type || "application/octet-stream").toLowerCase();
+    if (PHOTO_TYPES.has(tmime) && thumb.size <= PHOTO_MAX) {
+      thumbMime = tmime;
+      thumbBytes = thumb.size;
+      thumbKey = `${tradition.id}/cover/${crypto.randomUUID()}.thumb.${extForMime(tmime)}`;
+      await store.put(thumbKey, thumb, { contentType: tmime });
+    }
+  }
+  await env.DB.prepare(
+    `UPDATE traditions SET cover_media_id = NULL, cover_r2_key = ?, cover_mime = ?, cover_byte_size = ?,
+     cover_thumb_r2_key = ?, cover_thumb_mime = ?, cover_thumb_byte_size = ?
+     WHERE id = ?`
+  ).bind(key, mime, file.size, thumbKey, thumbMime, thumbBytes, tradition.id).run();
+  const urls = coverUrls({ ...tradition, cover_r2_key: key, cover_media_id: null });
+  return json({ ok: true, ...urls }, 201);
+}
+
 async function rotateCalendarLink(request, env) {
   const family = await familyFromRequest(request, env);
   if (!family) return json({ error: "Please log in with your family name and passcode." }, 401);
@@ -427,7 +538,7 @@ export async function calendarPage(request, env, url) {
         const rule = ruleFromRow(t);
         const day = occurInMonth(rule, safeYear, safeMonth);
         if (day !== cell.day) return null;
-        return { id: t.id, name: t.name, hue: hueOf(t.name) };
+        return { id: t.id, name: t.name, hue: hueOf(t.name), cover: coverUrls(t) };
       })
       .filter(Boolean);
     return { ...cell, items };
@@ -438,6 +549,7 @@ export async function calendarPage(request, env, url) {
     date: item.date,
     hue: hueOf(item.tradition.name),
     when: item.tradition.timing_note || describeRule(ruleFromRow(item.tradition)),
+    cover: coverUrls(item.tradition),
   }));
   const icsToken = await unseal(env.SESSION_SECRET, family.calendar_token_enc);
   const icsUrl = icsToken ? `${origin}/cal/${icsToken}.ics` : "";
@@ -448,9 +560,12 @@ export async function calendarPage(request, env, url) {
   const grid = cells.map((cell) => {
     if (!cell.day) return `<div class="cal-day outside" aria-hidden="true"></div>`;
     const isToday = cell.iso === today ? " today" : "";
-    const pills = cell.items.map((item) =>
-      `<a class="cal-pill hue-${esc(item.hue)}" href="/f/${esc(item.id)}">${esc(item.name)}</a>`
-    ).join("");
+    const pills = cell.items.map((item) => {
+      const thumb = item.cover && item.cover.hasCover
+        ? `<img class="cal-thumb" alt="" src="${esc(item.cover.thumb)}">`
+        : `<span class="cal-thumb fallback hue-${esc(item.hue)}" aria-hidden="true"></span>`;
+      return `<a class="cal-pill hue-${esc(item.hue)}" href="/f/${esc(item.id)}">${thumb}<span class="cal-pill-name">${esc(item.name)}</span></a>`;
+    }).join("");
     return `<div class="cal-day${isToday}">
       <a class="cal-num" href="/calendar?year=${safeYear}&month=${safeMonth}&add=${cell.iso}" aria-label="Add a tradition on ${esc(cell.iso)}">${cell.day}</a>${pills}</div>`;
   }).join("");
@@ -458,13 +573,13 @@ export async function calendarPage(request, env, url) {
   const unscheduled = traditions.filter((t) => !ruleFromRow(t));
   const unscheduledHtml = unscheduled.length
     ? `<div class="card"><h2>Needs a date</h2><ul class="upcoming">${unscheduled.map((t) =>
-      `<li><a href="/f/${esc(t.id)}">${esc(t.name)}</a>${t.timing_note ? ` — ${esc(t.timing_note)}` : ""}</li>`
+      `<li><a class="cal-pill hue-${esc(hueOf(t.name))}" href="/f/${esc(t.id)}">${coverUrls(t).hasCover ? `<img class="cal-thumb" alt="" src="${esc(coverUrls(t).thumb)}">` : `<span class="cal-thumb fallback hue-${esc(hueOf(t.name))}" aria-hidden="true"></span>`}<span class="cal-pill-name">${esc(t.name)}</span></a>${t.timing_note ? ` <span class="muted">${esc(t.timing_note)}</span>` : ""}</li>`
     ).join("")}</ul><p class="hint">These traditions don't have a date we can place on the calendar yet. Open one and edit when it happens, or add a new one by tapping a day.</p></div>`
     : "";
 
   const upcomingHtml = upcoming.length
     ? `<ul class="upcoming">${upcoming.map((item) =>
-      `<li><a class="cal-pill hue-${esc(item.hue)}" href="/f/${esc(item.id)}">${esc(item.name)}</a> <span class="muted">${esc(item.date)}${item.when ? ` · ${esc(item.when)}` : ""}</span></li>`
+      `<li><a class="cal-pill hue-${esc(item.hue)}" href="/f/${esc(item.id)}">${item.cover && item.cover.hasCover ? `<img class="cal-thumb" alt="" src="${esc(item.cover.thumb)}">` : `<span class="cal-thumb fallback hue-${esc(item.hue)}" aria-hidden="true"></span>`}<span class="cal-pill-name">${esc(item.name)}</span></a> <span class="muted">${esc(item.date)}${item.when ? ` · ${esc(item.when)}` : ""}</span></li>`
     ).join("")}</ul>`
     : `<p class="empty">Nothing upcoming with a date yet. Tap a day to add a tradition.</p>`;
 
@@ -548,6 +663,9 @@ function renderAddCard(iso) {
           <option value="fixed" selected>On this date every year</option>
           <option value="nth_weekday">On this weekday every year (for example, the first Saturday)</option>
         </select>
+        <label for="cal-cover">A cover picture (optional)</label>
+        <input id="cal-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+        <p class="hint">This picture stands for the tradition on the calendar and at the top of its page. It is shrunk on your phone before it uploads.</p>
         <button class="btn" type="submit">Create this tradition</button>
         <p class="error hidden" id="calendar-create-error"></p>
       </form>
@@ -604,6 +722,8 @@ export async function familyExport(request, env, url) {
       total += media.reduce((n, m) => n + Number(m.byte_size || 0), 0);
       daysOut.push({ ...day, media });
     }
+    if (t.cover_r2_key && isDedicatedCoverKey(t.cover_r2_key)) total += Number(t.cover_byte_size || 0);
+    if (t.cover_thumb_r2_key && isDedicatedCoverKey(t.cover_thumb_r2_key)) total += Number(t.cover_thumb_byte_size || 0);
     sized.push({ tradition: t, days: daysOut });
   }
 
@@ -641,6 +761,15 @@ export async function familyExport(request, env, url) {
     while (used.has(folder)) folder = `${slugPart(tradition.name)}-${n++}`;
     used.add(folder);
     const photos = [];
+    let coverPath = "";
+    if (tCoverKey(tradition)) {
+      const src = await resolveCoverObject(env, tradition);
+      if (src) {
+        const ext = extForMime(src.mime);
+        coverPath = `traditions/${folder}/cover.${ext}`;
+        zip.add(coverPath, src.buf);
+      }
+    }
     for (const day of days) {
       let i = 1;
       for (const m of day.media) {
@@ -649,7 +778,8 @@ export async function familyExport(request, env, url) {
         const path = `traditions/${folder}/${day.year}/${filename}`;
         const obj = await mediaStore(env).get(m.r2_key);
         if (obj) {
-          const buf = new Uint8Array(await obj.arrayBuffer());
+          const buf = await mediaBytes(obj);
+          if (!buf) continue;
           zip.add(path, buf);
           photos.push({ year: day.year, path, note: day.note, observed_on: day.observed_on });
           i += 1;
@@ -660,6 +790,7 @@ export async function familyExport(request, env, url) {
       name: tradition.name,
       timing: tradition.timing_note,
       practice: tradition.practice_note,
+      cover: coverPath || "",
       days: days.map((d) => ({
         year: d.year,
         observed_on: d.observed_on,
@@ -690,6 +821,43 @@ export async function familyExport(request, env, url) {
   });
 }
 
+
+
+async function mediaBytes(obj) {
+  if (!obj) return null;
+  if (typeof obj.arrayBuffer === "function") return new Uint8Array(await obj.arrayBuffer());
+  const data = obj.body ?? obj;
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+  if (typeof data?.arrayBuffer === "function") return new Uint8Array(await data.arrayBuffer());
+  return new Uint8Array(await new Response(data).arrayBuffer());
+}
+
+async function resolveCoverObject(env, tradition) {
+  const store = mediaStore(env);
+  if (tradition.cover_r2_key) {
+    const obj = await store.get(tradition.cover_r2_key);
+    if (!obj) return null;
+    const buf = await mediaBytes(obj);
+    if (!buf) return null;
+    return { mime: tradition.cover_mime || obj.contentType, buf };
+  }
+  if (tradition.cover_media_id) {
+    const row = await env.DB.prepare("SELECT r2_key, mime FROM media WHERE id = ?").bind(tradition.cover_media_id).first();
+    if (!row) return null;
+    const obj = await store.get(row.r2_key);
+    if (!obj) return null;
+    const buf = await mediaBytes(obj);
+    if (!buf) return null;
+    return { mime: row.mime || obj.contentType, buf };
+  }
+  return null;
+}
+
+function tCoverKey(tradition) {
+  return Boolean(tradition.cover_r2_key || tradition.cover_media_id);
+}
+
 function exportIndexHtml(familyName, exportedAt, traditions) {
   const sections = traditions.map((t) => {
     const years = (t.days || []).map((d) => {
@@ -698,6 +866,7 @@ function exportIndexHtml(familyName, exportedAt, traditions) {
     }).join("");
     return `<section>
       <h2>${esc(t.name)}</h2>
+      ${t.cover ? `<p><img src="${esc(t.cover)}" alt=""></p>` : ""}
       <p>${esc(t.timing || "")}</p>
       <p>${esc(t.practice || "")}</p>
       ${years}

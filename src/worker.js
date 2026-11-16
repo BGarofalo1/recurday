@@ -3,6 +3,7 @@ import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf
 import { hueOf, parseTiming, bindRule, describeRule } from "./calendar.js";
 import { sha256hex, randomToken } from "./auth.js";
 import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, canClaimRole } from "./family.js";
+import { coverUrls } from "./cover.js";
 
 const NAME_MAX = 80;
 const TIMING_MAX = 200;
@@ -228,7 +229,9 @@ async function present(env, auth, origin) {
       timing_note: tradition.timing_note,
       practice_note: tradition.practice_note,
       family_id: tradition.family_id || "",
+      cover_media_id: canViewMedia ? (tradition.cover_media_id || "") : "",
     },
+    cover: canViewMedia ? coverUrls(tradition, token) : { url: "", thumb: "", hasCover: false },
     share: share ? { id: share.id, label: share.label, accepted: Boolean(share.accepted_at) } : null,
     shares,
     days: days.map((d) => ({
@@ -371,7 +374,9 @@ async function upload(request, env) {
 }
 
 async function media(request, env, url) {
-  const id = url.pathname.slice("/media/".length).split("/")[0];
+  const rest = url.pathname.slice("/media/".length);
+  if (rest.startsWith("cover/")) return serveCover(request, env, url, rest.slice("cover/".length));
+  const id = rest.split("/")[0];
   if (!id) return new Response("Not found", { status: 404, headers: SECURITY });
   const row = await env.DB.prepare(
     `SELECT media.*, days.year, days.tradition_id
@@ -397,6 +402,57 @@ async function media(request, env, url) {
   if (!obj) return new Response("Not found", { status: 404, headers: SECURITY });
   const headers = new Headers(SECURITY);
   headers.set("content-type", row.mime);
+  headers.set("cache-control", "private, max-age=3600");
+  headers.set("content-disposition", "inline");
+  headers.set("x-content-type-options", "nosniff");
+  return new Response(obj.body, { headers });
+}
+
+
+async function serveCover(request, env, url, rest) {
+  const parts = rest.split("/").filter(Boolean);
+  const traditionId = parts[0] || "";
+  const wantThumb = parts[1] === "thumb";
+  if (!traditionId) return new Response("Not found", { status: 404, headers: SECURITY });
+  const tradition = await env.DB.prepare("SELECT * FROM traditions WHERE id = ?").bind(traditionId).first();
+  if (!tradition) return new Response("Not found", { status: 404, headers: SECURITY });
+  const auth = await resolveRequest(request, env, { tradition_id: traditionId }, url);
+  if (!auth || !auth.tradition || auth.tradition.id !== traditionId) {
+    return new Response("Not found", { status: 404, headers: SECURITY });
+  }
+  if (auth.role === "share" && !auth.share.accepted_at) {
+    return new Response("Not found", { status: 404, headers: SECURITY });
+  }
+
+  let key = "";
+  let mime = "image/jpeg";
+  if (wantThumb && tradition.cover_thumb_r2_key) {
+    key = tradition.cover_thumb_r2_key;
+    mime = tradition.cover_thumb_mime || mime;
+  } else if (tradition.cover_r2_key) {
+    key = tradition.cover_r2_key;
+    mime = tradition.cover_mime || mime;
+  } else if (tradition.cover_media_id) {
+    const row = await env.DB.prepare(
+      `SELECT media.*, days.year FROM media JOIN days ON days.id = media.day_id
+       WHERE media.id = ? AND days.tradition_id = ?`
+    ).bind(tradition.cover_media_id, traditionId).first();
+    if (!row) return new Response("Not found", { status: 404, headers: SECURITY });
+    if (auth.role === "share" && auth.share.years_policy && auth.share.years_policy !== "all") {
+      let allowed;
+      try { allowed = new Set(JSON.parse(auth.share.years_policy)); } catch { allowed = null; }
+      if (allowed && !allowed.has(row.year)) {
+        return new Response("Not found", { status: 404, headers: SECURITY });
+      }
+    }
+    key = row.r2_key;
+    mime = row.mime || mime;
+  }
+  if (!key) return new Response("Not found", { status: 404, headers: SECURITY });
+  const obj = await mediaStore(env).get(key);
+  if (!obj) return new Response("Not found", { status: 404, headers: SECURITY });
+  const headers = new Headers(SECURITY);
+  headers.set("content-type", mime);
   headers.set("cache-control", "private, max-age=3600");
   headers.set("content-disposition", "inline");
   headers.set("x-content-type-options", "nosniff");
@@ -643,7 +699,14 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
     </div>
     ${renderStartYourOwn()}` : "";
 
+  const hue = hueOf(tradition.name);
+  const cover = data.cover || { url: "", thumb: "", hasCover: false };
+  const hero = cover.hasCover
+    ? `<div class="cover-hero"><img alt="" src="${esc(cover.url)}"></div>`
+    : `<div class="cover-hero fallback hue-${esc(hue)}" aria-hidden="true"></div>`;
+
   return `
+    ${hero}
     <p class="eyebrow">${role === "share" ? "Shared with you" : "A family tradition"}</p>
     <h1>${esc(tradition.name)}</h1>
     <p class="lead">${esc(tradition.timing_note || "")}</p>
@@ -651,9 +714,10 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
     ${renderFamilyLink(data, token, newHousehold)}
     <div class="years" aria-label="Years">${chips}</div>
     ${mediaHtml ? `<div class="media-grid">${mediaHtml}</div>` : `<p class="empty">${can_upload ? "Nothing here for this year yet." : "Nothing has been added for this year yet."}</p>`}
-    ${renderThroughTheYears(days, role)}
+    ${renderThroughTheYears(days, role, cover, tradition)}
     ${upload}
     ${shareBlock}
+    ${role === "family" ? renderCoverCard(data, cover) : ""}
     ${renderClaim(data, token, family)}
     ${role === "family" ? `<p><a class="btn secondary" href="/family/export/${esc(tradition.id)}">Download this tradition</a></p>` : ""}
     ${can_admin ? renderAdmin(data, token) : ""}
@@ -708,19 +772,66 @@ function renderAdmin(data, token) {
     </div>`;
 }
 
-function renderThroughTheYears(days, role) {
-  if (role === "share" && !days.length) return "";
-  const years = [...days].sort((a, b) => a.year - b.year).map((d) => ({
+function renderThroughTheYears(days, role, cover, tradition) {
+  if (role === "share" && !days.length && !(cover && cover.hasCover)) return "";
+  const years = [...(days || [])].sort((a, b) => a.year - b.year).map((d) => ({
     year: d.year,
     note: d.note || "",
     photos: (d.media || []).map((m) => ({ url: m.url, mime: m.mime })),
   })).filter((d) => d.photos.length);
-  if (!years.length) return "";
+  if (!years.length && !(cover && cover.hasCover)) return "";
+  const payload = {
+    name: tradition?.name || "",
+    hue: tradition ? hueOf(tradition.name) : "red",
+    cover: cover && cover.hasCover ? { url: cover.url } : null,
+    years,
+  };
   return `
     <div class="actions">
       <button class="btn secondary" type="button" id="play-years">Through the years</button>
     </div>
-    <script type="application/json" id="years-data">${JSON.stringify(years).replace(/</g, "\\u003c")}</script>`;
+    <script type="application/json" id="years-data">${JSON.stringify(payload).replace(/</g, "\\u003c")}</script>`;
+}
+
+function renderCoverCard(data, cover) {
+  const { tradition, days } = data;
+  const hue = hueOf(tradition.name);
+  const photos = [];
+  for (const day of days || []) {
+    for (const m of day.media || []) {
+      if ((m.mime || "").startsWith("image/")) {
+        photos.push({ id: m.id, url: m.url, current: m.id === tradition.cover_media_id });
+      }
+    }
+  }
+  const preview = cover && cover.hasCover
+    ? `<img class="cover-preview" alt="" src="${esc(cover.url)}">`
+    : `<div class="cover-preview fallback hue-${esc(hue)}" aria-hidden="true"></div>`;
+  const picks = photos.length
+    ? `<p>Or pick a photo already kept with this tradition:</p>
+      <div class="cover-picks">${photos.map((m) =>
+        `<button type="button" class="cover-pick" data-media-id="${esc(m.id)}"${m.current ? ' aria-current="true"' : ""}><img alt="" src="${esc(m.url)}"></button>`
+      ).join("")}</div>`
+    : "";
+  const clear = cover && cover.hasCover
+    ? `<button class="btn secondary" type="button" id="cover-clear">Take the cover off</button>`
+    : "";
+  return `
+    <div class="card" id="cover-card">
+      <h2>Cover picture</h2>
+      <p>This picture stands for the tradition — on the calendar, at the top of this page, and at the start of Through the years.</p>
+      ${preview}
+      <form id="cover-form" data-tradition-id="${esc(tradition.id)}">
+        <label for="cover-file">Upload a photo</label>
+        <input id="cover-file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+        <p class="hint">The photo is shrunk on your phone before it uploads. Link previews stay generic; this picture stays private.</p>
+        <button class="btn" type="submit">Use this as the cover</button>
+        <p class="hint" id="cover-status"></p>
+        <p class="error hidden" id="cover-error"></p>
+      </form>
+      ${picks}
+      ${clear}
+    </div>`;
 }
 
 function renderStartYourOwn() {

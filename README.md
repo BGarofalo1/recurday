@@ -20,6 +20,7 @@ That idea stays in this file. The app itself just talks about giving, keeping, a
 - Set up one family login (a family name and one shared passcode) so everyone in the house can open the calendar. No email, and no individual accounts. You can claim an older private link into that login.
 - Text an unguessable family link — no account needed. Tap **Text this to family**. Recurday uses the phone's share sheet when it can, or opens a text message if it cannot.
 - Add photos for that year (shrunk on the phone, about 2 MB each). Video coming soon.
+- Give a tradition a cover picture — upload one, or pick a photo already kept with that day. It appears at the top of the tradition page, as a small round thumbnail on the calendar, and as the opening card of Through the years. If there's no cover, the tradition's rainbow hue stands in. Covers stay private like other photos; link previews stay the generic image.
 - Rewatch **Through the years**: a quiet slideshow, oldest year first, with the year named and then that year's photos.
 - Optionally **Pass it on** — a revocable invite to another family. They can look, and they can tap **Start this tradition too**, which copies the practice, not the photos. When they open the link they also see a gentle invitation to start their own family's traditions, and a hint to add Recurday to the home screen.
 - Export a private zip of your traditions, photos, and a simple index, to keep and pass down. If the whole family archive is too large, you can export one tradition at a time.

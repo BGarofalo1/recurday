@@ -431,6 +431,110 @@ async function main() {
     const calJune = await fetch(`${base}/calendar?year=2026&month=6`, { headers: { cookie: loginCookie } });
     const juneHtml = await calJune.text();
     check("calendar shows the tradition on its date", calJune.ok && juneHtml.includes("Pancake Saturday") && juneHtml.includes("/f/") && juneHtml.includes("hue-"));
+    check("calendar uses a hue fallback when a tradition has no cover", juneHtml.includes("cal-thumb fallback") && !juneHtml.includes("/media/cover/"));
+
+    const tradPageBefore = await fetch(`${base}${made.tradition_path}`, { headers: { cookie: loginCookie } });
+    const tradBeforeHtml = await tradPageBefore.text();
+    check(
+      "tradition page without a cover uses the hue and a generic preview",
+      tradPageBefore.ok &&
+        tradBeforeHtml.includes("cover-hero fallback") &&
+        tradBeforeHtml.includes('property="og:image"') &&
+        tradBeforeHtml.includes("/og.png") &&
+        !tradBeforeHtml.includes("/media/cover/") &&
+        tradBeforeHtml.includes("Cover picture")
+    );
+
+    const coverAnon = await fetch(`${base}/api/family/cover`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tradition_id: made.id }),
+    });
+    check("setting a cover requires login", coverAnon.status === 401);
+
+    const coverFd = new FormData();
+    coverFd.set("tradition_id", made.id);
+    coverFd.set("file", new Blob([JPG], { type: "image/jpeg" }), "cover.jpg");
+    coverFd.set("thumb", new Blob([JPG], { type: "image/jpeg" }), "cover.thumb.jpg");
+    const coverUp = await fetch(`${base}/api/family/cover`, { method: "POST", headers: { cookie: loginCookie }, body: coverFd });
+    const coverBody = await coverUp.json();
+    check("family can upload a cover picture", coverUp.status === 201 && coverBody.url && coverBody.thumb, JSON.stringify(coverBody));
+
+    const tradPage = await fetch(`${base}${made.tradition_path}`, { headers: { cookie: loginCookie } });
+    const tradHtml = await tradPage.text();
+    check(
+      "tradition page shows the cover as a hero and keeps a generic preview",
+      tradPage.ok &&
+        tradHtml.includes("cover-hero") &&
+        tradHtml.includes(coverBody.url) &&
+        !tradHtml.includes("cover-hero fallback") &&
+        tradHtml.includes('property="og:image"') &&
+        tradHtml.includes("/og.png") &&
+        !/og:image[^>]+\/media\/cover/i.test(tradHtml) &&
+        tradHtml.includes("years-data") &&
+        tradHtml.includes(coverBody.url)
+    );
+
+    const coverGet = await fetch(`${base}${coverBody.url}`, { headers: { cookie: loginCookie } });
+    const coverBytes = new Uint8Array(await coverGet.arrayBuffer());
+    check("cover is served to the logged-in family", coverGet.ok && (coverGet.headers.get("content-type") || "").includes("image/jpeg") && coverBytes[0] === 0xff && coverBytes[1] === 0xd8);
+    const coverHidden = await fetch(`${base}${coverBody.url}`);
+    check("cover without a login or link is hidden", coverHidden.status === 404);
+    const coverThumb = await fetch(`${base}${coverBody.thumb}`, { headers: { cookie: loginCookie } });
+    check("cover thumbnail is served", coverThumb.ok);
+
+    const calCovered = await fetch(`${base}/calendar?year=2026&month=6`, { headers: { cookie: loginCookie } });
+    const calCoveredHtml = await calCovered.text();
+    check(
+      "calendar shows a round cover thumbnail",
+      calCovered.ok && calCoveredHtml.includes("cal-thumb") && calCoveredHtml.includes(coverBody.thumb)
+    );
+
+    const yearPhoto = new FormData();
+    yearPhoto.set("tradition_id", made.id);
+    yearPhoto.set("year", "2024");
+    yearPhoto.set("file", new Blob([JPG], { type: "image/jpeg" }), "year.jpg");
+    const yearUp = await fetch(`${base}/api/upload`, { method: "POST", headers: { cookie: loginCookie }, body: yearPhoto });
+    const yearBody = await yearUp.json();
+    check("family can add a year photo to pick as a cover", yearUp.status === 201 && yearBody.media_id, JSON.stringify(yearBody));
+    const picked = await fetch(`${base}/api/family/cover`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: loginCookie },
+      body: JSON.stringify({ tradition_id: made.id, media_id: yearBody.media_id }),
+    });
+    const pickedBody = await picked.json();
+    check("family can pick an existing photo as the cover", picked.ok && pickedBody.url, JSON.stringify(pickedBody));
+    const afterPick = await fetch(`${base}${made.tradition_path}`, { headers: { cookie: loginCookie } });
+    const afterPickHtml = await afterPick.text();
+    check("picked cover is marked in the cover picker", afterPick.ok && afterPickHtml.includes(`data-media-id="${yearBody.media_id}"`) && afterPickHtml.includes("aria-current"));
+
+    const passOnCover = await fetch(`${base}/api/shares`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: loginCookie },
+      body: JSON.stringify({ tradition_id: made.id, label: "The Neighbors" }),
+    });
+    const passOnCoverBody = await passOnCover.json();
+    check("pass-it-on link can be minted for a covered tradition", passOnCover.status === 201 && passOnCoverBody.invite_path, JSON.stringify(passOnCoverBody));
+    const pendingCover = await fetch(`${base}${passOnCoverBody.invite_path}`);
+    const pendingCoverHtml = await pendingCover.text();
+    check("unaccepted share does not reveal the cover", pendingCover.ok && !pendingCoverHtml.includes("/media/cover/") && pendingCoverHtml.includes("/og.png"));
+    await fetch(`${base}/api/shares/accept`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ t: passOnCoverBody.invite_path.split("/s/")[1] }),
+    });
+    const acceptedCover = await fetch(`${base}${passOnCoverBody.invite_path}`);
+    const acceptedCoverHtml = await acceptedCover.text();
+    check("accepted share can see the cover and still uses a generic preview", acceptedCover.ok && acceptedCoverHtml.includes("/media/cover/") && acceptedCoverHtml.includes("/og.png"));
+    const copiedCover = await fetch(`${base}/api/shares/copy`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ t: passOnCoverBody.invite_path.split("/s/")[1] }),
+    });
+    const copiedCoverBody = await copiedCover.json();
+    const copiedPage = copiedCoverBody.household_path ? await fetch(`${base}${copiedCoverBody.household_path}`) : { ok: false, text: async () => "" };
+    const copiedPageHtml = await copiedPage.text();
+    check("passing it on copies the practice, not the cover", copiedCover.status === 201 && copiedPage.ok && copiedPageHtml.includes("cover-hero fallback") && !copiedPageHtml.includes("/media/cover/"), JSON.stringify(copiedCoverBody));
 
     const exportAnon = await fetch(`${base}/family/export`, { redirect: "manual" });
     check("export requires login", exportAnon.status === 401 || exportAnon.status === 303 || exportAnon.status === 302);
@@ -444,7 +548,9 @@ async function main() {
         zipBuf[0] === 0x50 && zipBuf[1] === 0x4b &&
         zipText.includes("family.json") &&
         zipText.includes("index.html") &&
-        zipText.includes("Pancake Saturday")
+        zipText.includes("Pancake Saturday") &&
+        (zipText.includes("cover.jpg") || zipText.includes("cover.jpeg")),
+      `status=${exported.status} type=${exported.headers.get("content-type")} cover=${zipText.includes("cover.jpg")} len=${zipBuf.length}`
     );
 
     const claimable = await fetch(`${base}/api/traditions`, {
