@@ -710,13 +710,13 @@ function exportIndexHtml(familyName, exportedAt, traditions) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${esc(familyName)} — Recurday export</title>
   <style>
-    body { margin: 0; font-family: Georgia, "Iowan Old Style", serif; background: #f6efe4; color: #2a2318; }
+    body { margin: 0; font-family: Georgia, "Iowan Old Style", serif; background: #ffffff; color: #2a2318; }
     .bar { height: 4px; background: linear-gradient(90deg, #e4452e, #f07812, #efc100, #2fa24c, #2b7de1, #4b3cb8, #8d2db5); }
     main { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1.1rem 3rem; }
     h1, h2, h3 { font-weight: 600; }
-    img { max-width: 100%; height: auto; border-radius: 0.6rem; background: #efe4d4; }
+    img { max-width: 100%; height: auto; border-radius: 0.6rem; background: #f4f4f4; }
     p { line-height: 1.45; }
-    section { margin: 2rem 0; padding-top: 1rem; border-top: 1px solid #e4d5c1; }
+    section { margin: 2rem 0; padding-top: 1rem; border-top: 1px solid #e6e6e6; }
   </style>
 </head>
 <body>

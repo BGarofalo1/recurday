@@ -138,8 +138,8 @@ async function main() {
         manifest.short_name === "Recurday" &&
         manifest.display === "standalone" &&
         (manifest.start_url === "/" || manifest.start_url === "./") &&
-        manifest.theme_color === "#f6efe4" &&
-        manifest.background_color === "#f6efe4",
+        manifest.theme_color === "#ffffff" &&
+        manifest.background_color === "#ffffff",
       JSON.stringify(manifest)
     );
     const purposes = (manifest.icons || []).flatMap((icon) => String(icon.purpose || "any").split(/\s+/));
@@ -197,7 +197,7 @@ async function main() {
       homeHtml.includes('rel="manifest"') &&
         homeHtml.includes("/manifest.webmanifest") &&
         homeHtml.includes('rel="apple-touch-icon"') &&
-        homeHtml.includes('name="theme-color" content="#f6efe4"') &&
+        homeHtml.includes('name="theme-color" content="#ffffff"') &&
         homeHtml.includes('name="apple-mobile-web-app-capable" content="yes"') &&
         homeHtml.includes('name="apple-mobile-web-app-title" content="Recurday"') &&
         homeHtml.includes("/app.js")
@@ -237,7 +237,7 @@ async function main() {
       "household page keeps install tags and a rainbow hue",
       familyHtml.includes('rel="manifest" href="/manifest.webmanifest"') &&
         familyHtml.includes('rel="apple-touch-icon"') &&
-        familyHtml.includes('name="theme-color" content="#f6efe4"') &&
+        familyHtml.includes('name="theme-color" content="#ffffff"') &&
         familyHtml.includes("/icons/mark.svg") &&
         /class="wrap hue-(red|orange|yellow|green|blue|indigo|violet)"/.test(familyHtml)
     );

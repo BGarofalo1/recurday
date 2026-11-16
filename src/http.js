@@ -45,7 +45,7 @@ export function pageShell({ title, description, ogTitle, ogDescription, origin, 
   <meta property="og:type" content="website">
   <meta property="og:image" content="${esc(origin)}/og.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="theme-color" content="#f6efe4">
+  <meta name="theme-color" content="#ffffff">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">

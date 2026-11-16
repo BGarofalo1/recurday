@@ -25,7 +25,7 @@ RAINBOW = [
     "#4b3cb8",  # indigo
     "#8d2db5",  # violet
 ]
-PAPER = "#f6efe4"
+PAPER = "#ffffff"
 INK = "#2a2318"
 MUTED = "#5a5146"
 

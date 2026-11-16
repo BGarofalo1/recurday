@@ -1,5 +1,5 @@
 /* Recurday app shell only. Never cache family photos, videos, or tradition pages. */
-const CACHE = "recurday-shell-v2";
+const CACHE = "recurday-shell-v3";
 const SHELL = [
   "/",
   "/styles.css",

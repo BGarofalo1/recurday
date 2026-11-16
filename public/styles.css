@@ -1,15 +1,15 @@
 :root {
-  --paper: #f6efe4;
-  --card: #fff8ef;
+  --paper: #ffffff;
+  --card: #ffffff;
   --ink: #2a2318;
   --muted: #5a5146;
-  --rule: #e4d5c1;
+  --rule: #e6e6e6;
   --clay: #c2392a;
   --clay-dark: #9e2e22;
   --moss: #2a6f35;
   --ok: #2a6f35;
   --link: #3a3b9a;
-  --shadow: 0 1px 2px rgba(42, 35, 24, 0.05), 0 10px 28px rgba(42, 35, 24, 0.07);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06);
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif;
   --sans: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
   --rainbow: linear-gradient(90deg, #e4452e, #f07812, #efc100, #2fa24c, #2b7de1, #4b3cb8, #8d2db5);
@@ -20,13 +20,13 @@
   --hue-blue: #1a5db8;
   --hue-indigo: #3a3b9a;
   --hue-violet: #6d248f;
-  --wash-red: #fbf3ef;
-  --wash-orange: #fbf4eb;
-  --wash-yellow: #faf6e6;
-  --wash-green: #f1f6ef;
-  --wash-blue: #eff4fa;
-  --wash-indigo: #f1f0f8;
-  --wash-violet: #f6eff8;
+  --wash-red: #fdf8f7;
+  --wash-orange: #fdf8f5;
+  --wash-yellow: #fbf9f4;
+  --wash-green: #f6faf6;
+  --wash-blue: #f6f9fc;
+  --wash-indigo: #f7f7fb;
+  --wash-violet: #faf6fb;
 }
 
 * { box-sizing: border-box; }
@@ -115,7 +115,7 @@ h2 { font-size: 1.35rem; }
 
 .card {
   position: relative;
-  background: var(--card-wash, var(--card));
+  background: var(--card);
   border: 1px solid var(--rule);
   border-radius: 1rem;
   box-shadow: var(--shadow);
@@ -135,18 +135,17 @@ h2 { font-size: 1.35rem; }
   pointer-events: none;
 }
 
-.card:nth-of-type(7n+1) { --card-hue: var(--hue-red); --card-wash: var(--wash-red); }
-.card:nth-of-type(7n+2) { --card-hue: var(--hue-orange); --card-wash: var(--wash-orange); }
-.card:nth-of-type(7n+3) { --card-hue: var(--hue-yellow); --card-wash: var(--wash-yellow); }
-.card:nth-of-type(7n+4) { --card-hue: var(--hue-green); --card-wash: var(--wash-green); }
-.card:nth-of-type(7n+5) { --card-hue: var(--hue-blue); --card-wash: var(--wash-blue); }
-.card:nth-of-type(7n+6) { --card-hue: var(--hue-indigo); --card-wash: var(--wash-indigo); }
-.card:nth-of-type(7n+7) { --card-hue: var(--hue-violet); --card-wash: var(--wash-violet); }
+.card:nth-of-type(7n+1) { --card-hue: var(--hue-red); }
+.card:nth-of-type(7n+2) { --card-hue: var(--hue-orange); }
+.card:nth-of-type(7n+3) { --card-hue: var(--hue-yellow); }
+.card:nth-of-type(7n+4) { --card-hue: var(--hue-green); }
+.card:nth-of-type(7n+5) { --card-hue: var(--hue-blue); }
+.card:nth-of-type(7n+6) { --card-hue: var(--hue-indigo); }
+.card:nth-of-type(7n+7) { --card-hue: var(--hue-violet); }
 
 /* The home page has a single starting card — give it the full rainbow. */
 .home .card {
   --card-hue: var(--rainbow);
-  --card-wash: var(--card);
 }
 
 label {
@@ -209,7 +208,7 @@ input:focus, textarea:focus {
 }
 
 .btn.secondary:hover {
-  background: linear-gradient(#f0e6d8, #f0e6d8) padding-box, var(--rainbow) border-box;
+  background: linear-gradient(#f5f5f5, #f5f5f5) padding-box, var(--rainbow) border-box;
 }
 
 .btn.moss {
@@ -285,14 +284,15 @@ input:focus, textarea:focus {
   width: 100%;
   height: auto;
   border-radius: 0.8rem;
-  background: #efe4d4;
+  background: #f4f4f4;
   display: block;
 }
 
 .empty { color: var(--muted); margin: 0.2rem 0 0.8rem; }
 
 .notice {
-  background: #efe7d6;
+  background: var(--card);
+  border: 1px solid var(--rule);
   border-radius: 0.8rem;
   padding: 0.8rem 0.95rem;
   color: var(--ink);
@@ -433,10 +433,10 @@ hr.soft {
   background: #fff;
   color: var(--ink);
   text-decoration: none;
-  border: 1px solid transparent;
+  border: 1px solid var(--rule);
   overflow: hidden;
 }
-.cal-day.outside { background: transparent; pointer-events: none; }
+.cal-day.outside { background: transparent; border-color: transparent; pointer-events: none; }
 .cal-day.today { outline: 2px solid var(--ink); outline-offset: -1px; }
 .cal-num {
   font-size: 0.78rem;
