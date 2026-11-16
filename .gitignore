@@ -1,0 +1,19 @@
+# Dependencies and local install
+node_modules/
+
+# Wrangler / Cloudflare local state (never publish)
+.wrangler/
+.dev.vars
+.dev.vars.*
+.mf/
+
+# Env and secrets (never publish)
+.env
+.env.*
+!.env.example
+
+# Logs and junk
+*.log
+tmp/
+.DS_Store
+*.swp
