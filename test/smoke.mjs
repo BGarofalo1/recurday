@@ -126,6 +126,14 @@ async function main() {
     const homeHtml = await home.text();
     check("home page loads", home.ok && homeHtml.includes("Start a tradition"));
     check("home quietly links to ideas", homeHtml.includes('href="/ideas"') && homeHtml.includes("Ideas"));
+    check(
+      "home footer quietly links to about, ideas, privacy, and terms",
+      homeHtml.includes('class="site-foot"') &&
+        homeHtml.includes('href="/about"') &&
+        homeHtml.includes('href="/privacy"') &&
+        homeHtml.includes('href="/terms"') &&
+        homeHtml.includes("Skip to content")
+    );
     check("home is noindex", (home.headers.get("x-robots-tag") || "").includes("noindex") && homeHtml.includes("noindex"));
     check("home has no likes or rankings", !/leaderboard|like button|popularity/i.test(homeHtml) && !homeHtml.includes("id=\"like\""));
     check(
@@ -152,6 +160,76 @@ async function main() {
     const ideasBody = await ideasApi.json();
     check("ideas api is a static list", ideasApi.ok && Array.isArray(ideasBody.ideas) && ideasBody.ideas.length >= 9 && ideasBody.ideas.every((idea) => idea.slug && idea.name && idea.practice && idea.timing));
 
+    const privacy = await fetch(`${base}/privacy`);
+    const privacyHtml = await privacy.text();
+    check(
+      "privacy page loads in plain words",
+      privacy.ok &&
+        privacyHtml.includes("<h1>Privacy</h1>") &&
+        privacyHtml.includes("No ads, no selling, no tracking") &&
+        privacyHtml.includes("How to delete everything") &&
+        privacyHtml.includes("Delete our family") &&
+        privacyHtml.includes("does not use analytics") &&
+        privacyHtml.includes("private to your family") &&
+        !privacyHtml.includes("Girard")
+    );
+    check("privacy page is noindex", (privacy.headers.get("x-robots-tag") || "").includes("noindex") && privacyHtml.includes("noindex"));
+
+    const terms = await fetch(`${base}/terms`);
+    const termsHtml = await terms.text();
+    check(
+      "terms page loads in plain words",
+      terms.ok &&
+        termsHtml.includes("<h1>Terms</h1>") &&
+        termsHtml.includes("free app") &&
+        termsHtml.includes("photos only") &&
+        termsHtml.includes("as-is") &&
+        termsHtml.includes("/privacy") &&
+        (terms.headers.get("x-robots-tag") || "").includes("noindex")
+    );
+
+    const about = await fetch(`${base}/about`);
+    const aboutHtml = await about.text();
+    check(
+      "about page loads with the tagline and open source link",
+      about.ok &&
+        aboutHtml.includes("<h1>About</h1>") &&
+        aboutHtml.includes("Creating family traditions.") &&
+        aboutHtml.includes("It was always about the small things.") &&
+        aboutHtml.includes("https://github.com/BGarofalo1/recurday") &&
+        aboutHtml.includes("Photos only") &&
+        !aboutHtml.includes("Girard") &&
+        !/leaderboard|like button|popularity/i.test(aboutHtml) &&
+        (about.headers.get("x-robots-tag") || "").includes("noindex")
+    );
+
+    const missingPage = await fetch(`${base}/this-page-is-not-here`);
+    const missingHtml = await missingPage.text();
+    check(
+      "missing pages show a plain 404",
+      missingPage.status === 404 &&
+        missingHtml.includes("We couldn't find that page.") &&
+        missingHtml.includes("Back to Recurday") &&
+        (missingPage.headers.get("x-robots-tag") || "").includes("noindex")
+    );
+    const missingAsset = await fetch(`${base}/no-such-file.js`);
+    const missingAssetHtml = await missingAsset.text();
+    check(
+      "missing script files stay a plain 404, not the HTML page",
+      missingAsset.status === 404 && !missingAssetHtml.includes("We couldn't find that page.")
+    );
+
+    check(
+      "pages send security headers",
+      (home.headers.get("content-security-policy") || "").includes("default-src 'self'") &&
+        home.headers.get("x-frame-options") === "DENY" &&
+        home.headers.get("cross-origin-opener-policy") === "same-origin" &&
+        home.headers.get("cross-origin-resource-policy") === "same-origin" &&
+        (home.headers.get("permissions-policy") || "").includes("camera=()") &&
+        (home.headers.get("strict-transport-security") || "").includes("max-age=15552000") &&
+        home.headers.get("x-content-type-options") === "nosniff" &&
+        home.headers.get("referrer-policy") === "no-referrer"
+    );
     const ideasAnonCal = await fetch(`${base}/calendar?idea=grinch-movie-night`, { redirect: "manual" });
     const ideasAnonLoc = ideasAnonCal.headers.get("location") || "";
     check("logged-out make-it-ours goes to get started", (ideasAnonCal.status === 303 || ideasAnonCal.status === 302) && ideasAnonLoc.includes("idea=grinch-movie-night"));
@@ -174,12 +252,18 @@ async function main() {
     const purposes = (manifest.icons || []).flatMap((icon) => String(icon.purpose || "any").split(/\s+/));
     const sizes = new Set((manifest.icons || []).map((icon) => icon.sizes));
     check("manifest has 192, 512, and maskable icons", sizes.has("192x192") && sizes.has("512x512") && purposes.includes("any") && purposes.includes("maskable"));
+    check("manifest also lists 48, 96, and 144 icons", sizes.has("48x48") && sizes.has("96x96") && sizes.has("144x144"));
 
     const iconChecks = [
       ["/icons/icon-192.png", 192],
       ["/icons/icon-512.png", 512],
       ["/icons/icon-192-maskable.png", 192],
       ["/icons/icon-512-maskable.png", 512],
+      ["/icons/icon-16.png", 16],
+      ["/icons/icon-32.png", 32],
+      ["/icons/icon-48.png", 48],
+      ["/icons/icon-96.png", 96],
+      ["/icons/icon-144.png", 144],
       ["/apple-touch-icon.png", 180],
       ["/favicon.png", 64],
     ];
@@ -201,6 +285,14 @@ async function main() {
     const shellList = shellMatch ? shellMatch[1] : "";
     check("service worker is javascript", sw.ok && /javascript/.test(swType));
     check("service worker is scoped to the whole app", (sw.headers.get("service-worker-allowed") || "") === "/");
+    const ico = await fetch(`${base}/favicon.ico`);
+    const icoBuf = new Uint8Array(await ico.arrayBuffer());
+    check(
+      "favicon.ico has 16, 32, and 48 px sizes",
+      ico.ok && icoBuf.length > 100 && icoBuf[0] === 0 && icoBuf[1] === 0 && icoBuf[2] === 1 && icoBuf[3] === 0 && icoBuf[4] === 3 && icoBuf[5] === 0,
+      `status=${ico.status} bytes=${icoBuf.length}`
+    );
+
     check("service worker caches the app shell", /recurday-shell/.test(swText) && shellList.includes("/offline.html") && shellList.includes("/styles.css") && shellList.includes("/app.js"));
     check(
       "service worker never caches private family data",
@@ -219,7 +311,15 @@ async function main() {
 
     const offline = await fetch(`${base}/offline.html`, { redirect: "manual" });
     const offlineHtml = offline.status === 200 ? await offline.text() : "";
-    check("offline fallback page loads", offline.status === 200 && (offline.headers.get("content-type") || "").includes("text/html") && offlineHtml.includes("You're offline"));
+    check(
+      "offline fallback page loads in plain words and has a footer",
+      offline.status === 200 &&
+        (offline.headers.get("content-type") || "").includes("text/html") &&
+        offlineHtml.includes("You're offline.") &&
+        offlineHtml.includes("Try Recurday again") &&
+        offlineHtml.includes('href="/privacy"') &&
+        offlineHtml.includes('class="site-foot"')
+    );
 
     check(
       "home is installable on iOS and Android",
@@ -445,7 +545,14 @@ async function main() {
     const calendar = await fetch(`${base}/calendar`, { headers: { cookie: loginCookie } });
     const calHtml = await calendar.text();
     check("calendar is the family home", calendar.ok && calHtml.includes("Our traditions") && calHtml.includes("Upcoming") && (calendar.headers.get("x-robots-tag") || "").includes("noindex"));
-    check("calendar more links to ideas", calHtml.includes('href="/ideas"'));
+    check(
+      "calendar more links to ideas, about, privacy, and delete",
+      calHtml.includes('href="/ideas"') &&
+        calHtml.includes('href="/about"') &&
+        calHtml.includes('href="/privacy"') &&
+        calHtml.includes("Delete our family") &&
+        calHtml.includes('id="delete-family-form"')
+    );
     const ideaCal = await fetch(`${base}/calendar?idea=grinch-movie-night`, { headers: { cookie: loginCookie } });
     const ideaCalHtml = await ideaCal.text();
     check(
@@ -643,6 +750,91 @@ async function main() {
     const loggedOutCookie = sessionCookieFrom(logout);
     check("family can log out", logout.ok);
 
+    const goneName = "The Deleters";
+    const gonePass = "delete-please";
+    const madeGoneFam = await fetch(`${base}/api/family/create`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: goneName, passcode: gonePass }),
+    });
+    const goneCookie = sessionCookieFrom(madeGoneFam);
+    check("a second family can be created to test delete", madeGoneFam.status === 201 && goneCookie, `status=${madeGoneFam.status}`);
+
+    const madeGoneTrad = await fetch(`${base}/api/family/traditions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: goneCookie },
+      body: JSON.stringify({ name: "Flashlight walk", practice_note: "Then cocoa.", date: "2026-02-06", recur_type: "nth_weekday" }),
+    });
+    const goneTrad = await madeGoneTrad.json();
+    check("delete-test family can add a tradition", madeGoneTrad.status === 201 && goneTrad.household_path && goneTrad.tradition_path, JSON.stringify(goneTrad));
+
+    const gonePhoto = new FormData();
+    gonePhoto.set("tradition_id", goneTrad.id);
+    gonePhoto.set("year", "2024");
+    gonePhoto.set("file", new Blob([JPG], { type: "image/jpeg" }), "year.jpg");
+    const goneUp = await fetch(`${base}/api/upload`, { method: "POST", headers: { cookie: goneCookie }, body: gonePhoto });
+    const goneMedia = await goneUp.json();
+    check("delete-test family can add a photo", goneUp.status === 201 && goneMedia.media_id, JSON.stringify(goneMedia));
+
+    const goneLinkBefore = await fetch(`${base}${goneTrad.household_path}`);
+    const goneLinkHtml = await goneLinkBefore.text();
+    check("family link works before delete", goneLinkBefore.ok && goneLinkHtml.includes("Flashlight walk"));
+
+    const deleteAnon = await fetch(`${base}/api/family/delete`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ passcode: gonePass, confirm: "1" }),
+    });
+    check("delete requires a login", deleteAnon.status === 401);
+
+    const noConfirm = await fetch(`${base}/api/family/delete`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: goneCookie },
+      body: JSON.stringify({ passcode: gonePass }),
+    });
+    check("delete requires confirmation", noConfirm.status === 400);
+
+    const stillThere = await fetch(`${base}${goneTrad.household_path}`);
+    check("family data remains if delete is not confirmed", stillThere.ok);
+
+    const badPass = await fetch(`${base}/api/family/delete`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: goneCookie },
+      body: JSON.stringify({ passcode: "wrong-passcode", confirm: "1" }),
+    });
+    check("delete rejects the wrong passcode", badPass.status === 401);
+
+    const stillThere2 = await fetch(`${base}${goneTrad.household_path}`);
+    check("family data remains after a wrong passcode", stillThere2.ok);
+
+    const deleted = await fetch(`${base}/api/family/delete`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: goneCookie },
+      body: JSON.stringify({ passcode: gonePass, confirm: "1" }),
+    });
+    const deletedBody = await deleted.json();
+    check("family can delete everything", deleted.ok && deletedBody.deleted === true, JSON.stringify(deletedBody));
+
+    const afterSession = await fetch(`${base}/calendar`, { headers: { cookie: goneCookie }, redirect: "manual" });
+    check("deleted family session no longer opens the calendar", afterSession.status === 303 || afterSession.status === 401 || afterSession.status === 302);
+
+    const afterLink = await fetch(`${base}${goneTrad.household_path}`);
+    const afterLinkHtml = await afterLink.text();
+    check("deleted family link no longer opens", afterLink.status === 404 && /isn't valid|couldn't find/i.test(afterLinkHtml), `status=${afterLink.status}`);
+
+    const afterFamPage = await fetch(`${base}${goneTrad.tradition_path}`, { headers: { cookie: goneCookie }, redirect: "manual" });
+    check("deleted tradition page is gone", afterFamPage.status === 404 || afterFamPage.status === 401 || afterFamPage.status === 303 || afterFamPage.status === 302, `status=${afterFamPage.status}`);
+
+    const afterMedia = await fetch(`${base}/media/${goneMedia.media_id}?t=${encodeURIComponent(goneTrad.household_path.split("/t/")[1])}`);
+    check("deleted family photo is gone", afterMedia.status === 404);
+
+    const reuseName = await fetch(`${base}/api/family/create`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: goneName, passcode: gonePass }),
+    });
+    check("deleted family name can be used again", reuseName.status === 201, `status=${reuseName.status}`);
+
     const lockerName = "Lockout Family";
     let lastLock;
     for (let i = 0; i < 5; i++) {
@@ -658,6 +850,7 @@ async function main() {
       body: JSON.stringify({ name: lockerName, passcode: "definitely-wrong" }),
     });
     check("login is locked after repeated failures", locked.status === 429, `status=${locked.status} prior=${lastLock.status}`);
+
   } finally {
     if (child && !child.killed) {
       child.kill("SIGTERM");

@@ -2,6 +2,11 @@ export const SECURITY = {
   "X-Robots-Tag": "noindex, nofollow",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+  "Strict-Transport-Security": "max-age=15552000; includeSubDomains",
   "Content-Security-Policy":
     "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'",
 };
@@ -55,20 +60,34 @@ export function pageShell({ title, description, ogTitle, ogDescription, origin, 
   <meta name="apple-mobile-web-app-title" content="Recurday">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png">
   <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="${wrapClass}">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <div class="${wrapClass}" id="content">
     <header class="top">
       <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="36" height="22" alt="">Recurday</a>
       ${nav}
     </header>
     ${body}
+    ${siteFooter()}
   </div>
   <script src="/app.js" defer></script>
 </body>
 </html>`;
+}
+
+export function siteFooter() {
+  return `<footer class="site-foot">
+    <a href="/about">About</a>
+    <a href="/ideas">Ideas</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+  </footer>`;
 }
 
 export function familyNav(family) {

@@ -19,11 +19,15 @@
   <meta name="apple-mobile-web-app-title" content="Recurday">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png">
   <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="wrap home">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <div class="wrap home" id="content">
     <header class="top">
       <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="36" height="22" alt="">Recurday</a>
     </header>
@@ -60,7 +64,7 @@
 
     <details class="more">
       <summary>More</summary>
-      <p class="more-link"><a href="/ideas">Ideas</a></p>
+      <p class="more-link"><a href="/ideas">Ideas</a> · <a href="/about">About</a> · <a href="/privacy">Privacy</a></p>
       <div class="card">
         <h2>Start a tradition</h2>
         <p class="hint">Or begin with one tradition and a link, then name your family later.</p>
@@ -77,6 +81,12 @@
         </form>
       </div>
     </details>
+    <footer class="site-foot">
+      <a href="/about">About</a>
+      <a href="/ideas">Ideas</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+    </footer>
   </div>
   <script src="/app.js" defer></script>
 </body>

@@ -1,11 +1,13 @@
 /* Recurday app shell only. Never cache family photos or tradition pages. */
-const CACHE = "recurday-shell-v6";
+const CACHE = "recurday-shell-v7";
 const SHELL = [
   "/",
   "/styles.css",
   "/app.js",
   "/offline.html",
   "/favicon.png",
+  "/favicon.ico",
+  "/icons/icon-32.png",
   "/manifest.webmanifest",
   "/apple-touch-icon.png",
   "/icons/mark.svg",

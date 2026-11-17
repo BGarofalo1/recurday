@@ -39,6 +39,7 @@ import { json, html, esc, pageShell, familyNav, nowIso, clip, originOf, isSecure
 import { mediaStore } from "./storage.js";
 import { PHOTO_MAX, PHOTO_TYPES, extForMime, coverUrls, isDedicatedCoverKey } from "./cover.js";
 import { ideaBySlug, ideaRecurType, nextIdeaDate } from "./ideas.js";
+import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_LIMIT } from "./limits.js";
 
 const EXPORT_MAX = 40 * 1024 * 1024;
 const NAME_MAX = 80;
@@ -168,6 +169,7 @@ export async function handleFamilyApi(request, env, url) {
   if (request.method === "POST" && path === "/api/family/traditions") return createFamilyTradition(request, env);
   if (request.method === "POST" && path === "/api/family/calendar-link") return rotateCalendarLink(request, env);
   if (request.method === "POST" && path === "/api/family/cover") return setFamilyCover(request, env);
+  if (request.method === "POST" && path === "/api/family/delete") return deleteFamily(request, env);
   return json({ error: "Not found." }, 404);
 }
 
@@ -190,6 +192,8 @@ async function createFamily(request, env) {
   const key = nameKey(display);
   const lockedRes = await assertNotLocked(env, ip, key);
   if (lockedRes) return lockedRes;
+  const createdLimit = await assertRateLimit(env, `rl:create:ip:${ip}`, CREATE_LIMIT, UPLOAD_WINDOW_MS);
+  if (createdLimit) return createdLimit;
   const existing = await findFamilyByName(env, display);
   if (existing) return json({ error: "That family name is already in use. If this is your family, log in." }, 409);
   const { family, calendarToken } = await createFamilyRecord(env, display, body.passcode);
@@ -360,6 +364,8 @@ function ruleFromBody(body) {
 async function createFamilyTradition(request, env) {
   const family = await familyFromRequest(request, env);
   if (!family) return json({ error: "Please log in with your family name and passcode." }, 401);
+  const limited = await assertRateLimit(env, `rl:traditions:${family.id}`, CREATE_LIMIT, UPLOAD_WINDOW_MS);
+  if (limited) return limited;
   const body = await readBody(request);
   const name = clip(body.name, NAME_MAX);
   const practice_note = clip(body.practice_note, NOTE_MAX);
@@ -461,6 +467,8 @@ async function setFamilyCover(request, env) {
   if (!file || typeof file === "string" || !file.size) {
     return json({ error: "Choose a photo first." }, 400);
   }
+  const limited = await assertRateLimit(env, `rl:upload:${family.id}`, UPLOAD_LIMIT, UPLOAD_WINDOW_MS);
+  if (limited) return limited;
   const mime = (file.type || "application/octet-stream").toLowerCase();
   if (!PHOTO_TYPES.has(mime)) return json({ error: "Photos only." }, 400);
   if (file.size > PHOTO_MAX) return json({ error: "That photo is too large. Please keep it to about 2 MB." }, 400);
@@ -623,7 +631,7 @@ export async function calendarPage(request, env, url) {
     ${unscheduledHtml}
     <details class="more">
       <summary>More</summary>
-      <p class="more-link"><a href="/ideas">Ideas</a></p>
+      <p class="more-link"><a href="/ideas">Ideas</a> · <a href="/about">About</a> · <a href="/privacy">Privacy</a></p>
       <div class="card">
         <h2>Family passcode</h2>
         <p>Everyone at home uses the name <strong>${esc(family.name)}</strong> and the same passcode.</p>
@@ -651,6 +659,20 @@ export async function calendarPage(request, env, url) {
         <p>Download your traditions and photos to keep.</p>
         <a class="btn" href="/family/export">Save a copy</a>
         <p class="hint">If the whole album is too large, you can save one tradition at a time.</p>
+      </div>
+      <div class="card" id="delete-family">
+        <h2>Delete our family</h2>
+        <p>This cannot be undone. It removes your calendar, traditions, photos, and all family links.</p>
+        <form id="delete-family-form">
+          <label for="delete-passcode">Passcode</label>
+          <input id="delete-passcode" name="passcode" type="password" required minlength="8" autocomplete="current-password">
+          <label class="check-label" for="delete-confirm">
+            <input id="delete-confirm" name="confirm" type="checkbox" value="1" required>
+            Yes, delete everything for ${esc(family.name)}.
+          </label>
+          <button class="btn" type="submit">Delete our family</button>
+          <p class="error hidden" id="delete-family-error"></p>
+        </form>
       </div>
     </details>`;
 
@@ -932,4 +954,50 @@ function exportIndexHtml(familyName, exportedAt, traditions) {
 
 export function canClaimRole(role) {
   return role === "household" || role === "admin";
+}
+
+async function deleteFamily(request, env) {
+  const family = await familyFromRequest(request, env);
+  if (!family) return json({ error: "Please log in with your family name and passcode." }, 401);
+  const body = await readBody(request);
+  const ip = clientIp(request);
+  const lockedRes = await assertNotLocked(env, ip, family.name_key);
+  if (lockedRes) return lockedRes;
+  const confirmed = body.confirm === true || body.confirm === "1" || body.confirm === "yes";
+  if (!confirmed) return json({ error: "Please confirm that you want to delete everything." }, 400);
+  if (!validPasscode(body.passcode) || !(await verifyPasscode(family, body.passcode))) {
+    await recordFailure(env, ip, family.name_key);
+    return json({ error: "That passcode didn't work." }, 401);
+  }
+  await removeFamilyData(env, family);
+  return clearSession(request, { ok: true, deleted: true });
+}
+
+export async function removeFamilyData(env, family) {
+  const traditions = await loadFamilyTraditions(env, family.id);
+  const store = mediaStore(env);
+  for (const tradition of traditions) {
+    const days = (await env.DB.prepare("SELECT * FROM days WHERE tradition_id = ?").bind(tradition.id).all()).results || [];
+    for (const day of days) {
+      const media = (await env.DB.prepare("SELECT * FROM media WHERE day_id = ?").bind(day.id).all()).results || [];
+      for (const item of media) {
+        if (item.r2_key) {
+          try { await store.remove(item.r2_key); } catch {}
+        }
+      }
+      await env.DB.prepare("DELETE FROM media WHERE day_id = ?").bind(day.id).run();
+    }
+    await env.DB.prepare("DELETE FROM days WHERE tradition_id = ?").bind(tradition.id).run();
+    await env.DB.prepare("DELETE FROM shares WHERE tradition_id = ?").bind(tradition.id).run();
+    await env.DB.prepare("DELETE FROM copies WHERE new_tradition_id = ? OR source_tradition_id = ?").bind(tradition.id, tradition.id).run();
+    if (tradition.cover_r2_key) {
+      try { await store.remove(tradition.cover_r2_key); } catch {}
+    }
+    if (tradition.cover_thumb_r2_key) {
+      try { await store.remove(tradition.cover_thumb_r2_key); } catch {}
+    }
+    await env.DB.prepare("DELETE FROM traditions WHERE id = ?").bind(tradition.id).run();
+  }
+  await env.DB.prepare("DELETE FROM families WHERE id = ?").bind(family.id).run();
+  await env.DB.prepare("DELETE FROM login_attempts WHERE key = ?").bind(`name:${family.name_key}`).run();
 }

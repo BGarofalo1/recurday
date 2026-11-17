@@ -2,6 +2,8 @@ import { occurDate, parseTiming, ruleFromDate, upcomingFor, buildIcs, nthWeekday
 import { IDEAS, ideaBySlug, nextIdeaDate } from "../src/ideas.js";
 import { hashPasscode, signSession, verifySession, validFamilyName, nameKey, seal, unseal, hexToBytes, timingSafeEqual } from "../src/auth.js";
 import { ZipBuilder, crc32, slugPart } from "../src/zip.js";
+import { SECURITY } from "../src/http.js";
+import { UPLOAD_LIMIT, CREATE_LIMIT, UPLOAD_WINDOW_MS } from "../src/limits.js";
 
 let failed = 0;
 let passed = 0;
@@ -106,6 +108,9 @@ check("Grinch Movie Night next falls on December 12 2026", nextIdeaDate(grinch, 
 const blocked = new Set(["2026-01-01", "2027-01-01", "2028-01-01", "2026-07-04", "2027-07-04", "2028-07-04", "2026-10-31", "2027-10-31", "2028-10-31", "2026-11-26", "2027-11-25", "2028-11-23", "2026-12-25", "2027-12-25", "2028-12-25"]);
 const ideaDates = IDEAS.flatMap((idea) => [2026, 2027, 2028].map((year) => occurDate(parseTiming(idea.timing), year)));
 check("ideas stay off major holidays", ideaDates.every((date) => date && !blocked.has(date)), JSON.stringify(ideaDates.filter((date) => blocked.has(date))));
+
+check("security headers include CSP, frame deny, and HSTS", SECURITY["Content-Security-Policy"].includes("default-src 'self'") && SECURITY["X-Frame-Options"] === "DENY" && SECURITY["Strict-Transport-Security"].includes("max-age=15552000") && SECURITY["Cross-Origin-Opener-Policy"] === "same-origin");
+check("upload and create rate limits are set", UPLOAD_LIMIT === 40 && CREATE_LIMIT === 8 && UPLOAD_WINDOW_MS === 15 * 60 * 1000);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 

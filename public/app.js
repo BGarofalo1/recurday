@@ -142,6 +142,28 @@ function showError(node, message) {
   if (!node) return;
   node.textContent = message;
   node.classList.toggle("hidden", !message);
+  if (message) node.setAttribute("role", "alert");
+  else node.removeAttribute("role");
+}
+
+function friendlyError(err, fallback) {
+  if (!err) return fallback || "That didn't work. Try again.";
+  if (err.name === "TypeError" || /failed to fetch|networkerror|load failed/i.test(err.message || "")) {
+    return "That didn't work. Check your connection and try again.";
+  }
+  return err.message || fallback || "That didn't work. Try again.";
+}
+
+function setBusy(btn, busy, label) {
+  if (!btn) return;
+  if (busy) {
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+    btn.disabled = true;
+    if (label) btn.textContent = label;
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.label) btn.textContent = btn.dataset.label;
+  }
 }
 
 const createForm = $("#create-form");
@@ -162,7 +184,7 @@ if (createForm) {
       const family = (body.household_path || "").split("/t/")[1] || "";
       location.href = family ? `${body.admin_path}?new=${encodeURIComponent(family)}` : body.admin_path;
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
     }
   });
 }
@@ -223,7 +245,7 @@ if (uploadForm) {
       if (!res.ok) throw new Error(body.error || "Upload failed.");
       location.search = `?year=${encodeURIComponent($("#year").value)}`;
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
       if (status) status.textContent = "";
     } finally {
       if (btn) btn.disabled = false;
@@ -256,7 +278,7 @@ if (inviteForm) {
         });
       }
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
     }
   });
 }
@@ -275,7 +297,7 @@ document.querySelectorAll("[data-revoke]").forEach((btn) => {
       if (!res.ok) throw new Error(body.error || "Could not stop that share.");
       location.reload();
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
     }
   });
 });
@@ -296,7 +318,7 @@ if (acceptForm) {
       if (!res.ok) throw new Error(body.error || "Could not accept that invite.");
       location.reload();
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
     }
   });
 }
@@ -328,7 +350,7 @@ if (copyForm) {
           <p class="hint">Their photos stay with them. You can fill this day with your own.</p>`;
       }
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
       if (btn) btn.disabled = false;
     }
   });
@@ -354,7 +376,7 @@ if (yearNote) {
       if (!res.ok) throw new Error(body.error || "Could not save that note.");
       location.search = `?year=${encodeURIComponent($("#year").value)}`;
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
     }
   });
 }
@@ -543,7 +565,7 @@ if (familyCreate) {
     const err = $("#family-create-error");
     showError(err, "");
     const btn = familyCreate.querySelector("button[type=submit]");
-    if (btn) btn.disabled = true;
+    setBusy(btn, true, "Please wait…");
     try {
       const res = await postJson("/api/family/create", {
         name: $("#create-family-name").value,
@@ -553,8 +575,8 @@ if (familyCreate) {
       if (!res.ok) throw new Error(body.error || "Could not create that family login.");
       location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
     } catch (e) {
-      showError(err, e.message);
-      if (btn) btn.disabled = false;
+      showError(err, friendlyError(e));
+      setBusy(btn, false);
     }
   });
 }
@@ -566,7 +588,7 @@ if (familyLogin) {
     const err = $("#family-login-error");
     showError(err, "");
     const btn = familyLogin.querySelector("button[type=submit]");
-    if (btn) btn.disabled = true;
+    setBusy(btn, true, "Please wait…");
     try {
       const res = await postJson("/api/family/login", {
         name: $("#login-family-name").value,
@@ -576,8 +598,8 @@ if (familyLogin) {
       if (!res.ok) throw new Error(body.error || "That family name or passcode didn't work.");
       location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
     } catch (e) {
-      showError(err, e.message);
-      if (btn) btn.disabled = false;
+      showError(err, friendlyError(e));
+      setBusy(btn, false);
     }
   });
 }
@@ -601,8 +623,38 @@ if (claimForm) {
       if (!res.ok) throw new Error(body.error || "Could not set up that family login.");
       location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
       if (btn) btn.disabled = false;
+    }
+  });
+}
+
+
+const deleteFamilyForm = $("#delete-family-form");
+if (deleteFamilyForm) {
+  deleteFamilyForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#delete-family-error");
+    showError(err, "");
+    const btn = deleteFamilyForm.querySelector("button[type=submit]");
+    const confirmed = $("#delete-confirm")?.checked;
+    if (!confirmed) {
+      showError(err, "Please confirm that you want to delete everything.");
+      return;
+    }
+    if (!window.confirm("Delete our family? This cannot be undone.")) return;
+    setBusy(btn, true, "Please wait…");
+    try {
+      const res = await postJson("/api/family/delete", {
+        passcode: $("#delete-passcode")?.value,
+        confirm: "1",
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Could not delete our family.");
+      location.href = "/";
+    } catch (e) {
+      showError(err, friendlyError(e));
+      setBusy(btn, false);
     }
   });
 }
@@ -633,7 +685,7 @@ if (calCreate) {
       clearStoredIdea();
       location.href = body.tradition_path || "/calendar";
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
       if (btn) btn.disabled = false;
     }
   });
@@ -657,7 +709,7 @@ if (passForm) {
       passForm.reset();
       ok?.classList.remove("hidden");
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
     }
   });
 }
@@ -718,7 +770,7 @@ if (coverForm) {
       if (!res.ok) throw new Error(body.error || "Could not use that photo as the cover.");
       location.reload();
     } catch (e) {
-      showError(err, e.message);
+      showError(err, friendlyError(e));
       if (status) status.textContent = "";
       if (btn) btn.disabled = false;
     }
@@ -733,7 +785,7 @@ if (coverForm) {
         if (!res.ok) throw new Error(body.error || "Could not use that photo as the cover.");
         location.reload();
       } catch (e) {
-        showError(err, e.message);
+        showError(err, friendlyError(e));
         btn.disabled = false;
       }
     });
@@ -749,7 +801,7 @@ if (coverForm) {
         if (!res.ok) throw new Error(body.error || "Could not take the cover off.");
         location.reload();
       } catch (e) {
-        showError(err, e.message);
+        showError(err, friendlyError(e));
         clearBtn.disabled = false;
       }
     });

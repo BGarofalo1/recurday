@@ -1,11 +1,13 @@
 import { mediaStore } from "./storage.js";
 import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf, TAGLINE, TAGLINE_SUPPORT } from "./http.js";
 import { hueOf, parseTiming, bindRule, describeRule } from "./calendar.js";
-import { sha256hex, randomToken } from "./auth.js";
+import { sha256hex, randomToken, clientIp } from "./auth.js";
 import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, canClaimRole } from "./family.js";
 import { coverUrls } from "./cover.js";
 import { saveHouseholdToken, rotateHouseholdToken, familyLinkUrl } from "./links.js";
 import { IDEAS, renderIdeasBody } from "./ideas.js";
+import { privacyPage, termsPage, aboutPage, notFoundPage } from "./pages.js";
+import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_LIMIT } from "./limits.js";
 
 const NAME_MAX = 80;
 const TIMING_MAX = 200;
@@ -47,6 +49,9 @@ async function handle(request, env) {
   if (path.startsWith("/f/")) return familyTraditionPage(request, env, url);
   if (path === "/calendar") return calendarPage(request, env, url);
   if (path === "/ideas") return ideasPage(request, env);
+  if (path === "/privacy") return privacyPage(request, env);
+  if (path === "/terms") return termsPage(request, env);
+  if (path === "/about") return aboutPage(request, env);
   if (path.startsWith("/cal/")) return calendarFeed(request, env, url);
   if (path.startsWith("/family/export")) return familyExport(request, env, url);
 
@@ -78,11 +83,22 @@ async function handle(request, env) {
 
   if (env.ASSETS) {
     const res = await env.ASSETS.fetch(request);
+    if (res.status === 404 && request.method === "GET" && wantsHtml(request)) {
+      return notFoundPage(request, env);
+    }
     const headers = new Headers(res.headers);
     for (const [k, v] of Object.entries(SECURITY)) headers.set(k, v);
     return new Response(res.body, { status: res.status, headers });
   }
+  if (request.method === "GET" && wantsHtml(request)) return notFoundPage(request, env);
   return new Response("Not found", { status: 404, headers: SECURITY });
+}
+
+function wantsHtml(request) {
+  const accept = request.headers.get("accept") || "";
+  if (accept.includes("text/html")) return true;
+  const path = new URL(request.url).pathname;
+  return !path.includes(".");
 }
 
 async function api(request, env, url) {
@@ -254,6 +270,8 @@ async function present(env, auth, origin) {
 }
 
 async function createTradition(request, env) {
+  const limited = await assertRateLimit(env, `rl:create:ip:${clientIp(request)}`, CREATE_LIMIT, UPLOAD_WINDOW_MS);
+  if (limited) return limited;
   const body = await readBody(request);
   const name = clip(body.name, NAME_MAX);
   const timing_note = clip(body.timing_note, TIMING_MAX);
@@ -310,6 +328,8 @@ async function upsertDay(request, env) {
   const auth = await resolveRequest(request, env, body);
   if (!auth || !auth.tradition) return json({ error: "We couldn't find that link." }, 404);
   if (auth.role === "share") return json({ error: "This invite is only for looking, not adding." }, 403);
+  const limited = await assertRateLimit(env, `rl:upload:${auth.tradition.id}:${clientIp(request)}`, UPLOAD_LIMIT, UPLOAD_WINDOW_MS);
+  if (limited) return limited;
   const year = Number(body.year);
   if (!yearOk(year)) return json({ error: "Please choose a valid year." }, 400);
   const day = await ensureDay(env, auth.tradition.id, year, body);

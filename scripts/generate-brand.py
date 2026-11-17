@@ -251,6 +251,15 @@ def main() -> None:
     make_icon(512, padding=0.22, path=ICONS / "icon-512-maskable.png")
     make_icon(180, padding=0.14, path=PUBLIC / "apple-touch-icon.png")
     make_icon(64, padding=0.12, path=PUBLIC / "favicon.png")
+    for size in (16, 32, 48, 96, 144):
+        pad = 0.12 if size <= 32 else 0.14
+        make_icon(size, padding=pad, path=ICONS / f"icon-{size}.png")
+    Image.open(ICONS / "icon-48.png").convert("RGBA").save(
+        PUBLIC / "favicon.ico",
+        format="ICO",
+        sizes=[(16, 16), (32, 32), (48, 48)],
+    )
+    print(f"wrote {(PUBLIC / 'favicon.ico').relative_to(ROOT)}")
     make_og(PUBLIC / "og.png")
 
 

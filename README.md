@@ -28,6 +28,7 @@ That idea stays in this file. The app itself just talks about giving, keeping, a
 - Optionally **Pass it on** — a revocable invite to another family. They can look, and they can tap **Start this tradition too**, which copies the practice, not the photos. When they open the link they also see a quiet **Start your own** at the bottom.
 - Export a private zip of your traditions, photos, and a simple index, to keep and pass down. If the whole family archive is too large, you can export one tradition at a time.
 - Add Recurday to your phone's home screen. There is no app store.
+- Read **Privacy**, **Terms**, and **About** — short, honest pages for how the app works, including how to delete everything. A family can also choose **Delete our family** under More, after entering the passcode.
 
 ## Design
 
@@ -37,7 +38,7 @@ Recurday is built so families can share a practice without slipping into rivalry
 - Links are private and unguessable; `robots` is set to `noindex`
 - Link previews use a generic image, never a family's photos
 - A share is an invitation you can stop. Another family gets the practice, not your media
-- The family passcode is stored as a slow hash (PBKDF2). Sessions are httpOnly cookies. Changing the passcode signs out other devices. Logins are rate-limited.
+- The family passcode is stored as a slow hash (PBKDF2). Sessions are httpOnly cookies. Changing the passcode signs out other devices. Logins and uploads are rate-limited. Photos are limited to about 2 MB each.
 
 ## Add it to your home screen
 
@@ -74,6 +75,9 @@ Hosting is on Cloudflare Workers, with D1 for metadata and a private Workers KV 
 5. `npx wrangler deploy`
 
 A custom domain is optional and is not included here. Do not commit `.dev.vars`, `.wrangler/`, or any secrets.
+
+D1 Time Travel is always on and does not cost extra. On the Workers Free plan it can restore the database to a minute in the last 7 days (`wrangler d1 time-travel`). A paid Workers plan would keep 30 days; Recurday is not using a paid plan. Time Travel covers database rows (names, notes, dates, and link hashes), not the photo files in Workers KV. Families should use **Save a copy** if they want their own backup of photos.
+
 
 To move photos to a private R2 bucket later, follow the steps at the top of `src/storage.js`.
 
