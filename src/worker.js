@@ -1,5 +1,5 @@
 import { mediaStore } from "./storage.js";
-import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf } from "./http.js";
+import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf, TAGLINE } from "./http.js";
 import { hueOf, parseTiming, bindRule, describeRule } from "./calendar.js";
 import { sha256hex, randomToken } from "./auth.js";
 import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, canClaimRole } from "./family.js";
@@ -617,11 +617,12 @@ async function renderTraditionResponse(request, env, auth, url, { newHousehold, 
   const selectedDay = data.days.find((d) => d.year === selected);
   const body = renderTradition(data, { selected, selectedDay, currentYear, token, newHousehold, family });
   const when = data.tradition.timing_note || "A family tradition";
+  const isShare = auth.role === "share";
   return html(pageShell({
     title: `${data.tradition.name} — Recurday`,
-    description: when,
-    ogTitle: data.tradition.name,
-    ogDescription: [when, data.tradition.practice_note].filter(Boolean).join(" — ").slice(0, 180),
+    description: isShare ? TAGLINE : when,
+    ogTitle: isShare ? "Recurday" : data.tradition.name,
+    ogDescription: isShare ? TAGLINE : [when, data.tradition.practice_note].filter(Boolean).join(" — ").slice(0, 180),
     origin: originOf(request),
     hue: hueOf(data.tradition.name),
     nav: familyNav(family),
@@ -634,8 +635,10 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
   if (role === "share" && !accepted) {
     return `
       <p class="eyebrow">A family invited you</p>
+      <p class="lead tagline">Creating family traditions. It was always about the small things.</p>
+      <p class="support">Not the big holidays. The ones your family makes your own.</p>
       <h1>${esc(tradition.name)}</h1>
-      <p class="lead">They wanted to pass this day on to you. Accept to look — their photos stay private until you do.</p>
+      <p>They wanted to pass this day on to you. Accept to look — their photos stay private until you do.</p>
       <div class="card">
         <p><strong>When:</strong> ${esc(tradition.timing_note || "They haven't written when it happens yet.")}</p>
         ${tradition.practice_note ? `<p class="practice">${esc(tradition.practice_note)}</p>` : ""}
@@ -838,7 +841,7 @@ function renderStartYourOwn() {
   return `
     <div class="card" id="start-your-own">
       <h2>Start your own family's traditions</h2>
-      <p>If this day meant something to you, you can keep days like it at home — given back to each other, year after year. Text a link. No app store.</p>
+      <p>If this day meant something to you, you can keep days like it at home. Text a link. No app store.</p>
       <a class="btn" href="/">Start your family's traditions</a>
     </div>`;
 }

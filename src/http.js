@@ -6,6 +6,9 @@ export const SECURITY = {
     "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'",
 };
 
+export const TAGLINE = "Creating family traditions. It was always about the small things.";
+export const TAGLINE_SUPPORT = "Not the big holidays. The ones your family makes your own.";
+
 export function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,

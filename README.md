@@ -1,6 +1,8 @@
 # Recurday
 
-A free web app for a family's own special traditions — away from the major holidays. Text a link, add photos of the day you keep, and come back next year to rewatch as the kids grow.
+Creating family traditions. It was always about the small things.
+
+A free web app for the days a family makes their own. Text a link, add photos of the day you keep, and come back next year to rewatch as the kids grow.
 
 Live: [https://recurday.bgarofalo1.workers.dev](https://recurday.bgarofalo1.workers.dev)
 

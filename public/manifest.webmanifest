@@ -1,7 +1,7 @@
 {
   "name": "Recurday",
   "short_name": "Recurday",
-  "description": "Keep your family's own special days, away from the major holidays, and rewatch them as the kids grow.",
+  "description": "Creating family traditions. It was always about the small things.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -127,6 +127,19 @@ async function main() {
     check("home page loads", home.ok && homeHtml.includes("Start a tradition"));
     check("home is noindex", (home.headers.get("x-robots-tag") || "").includes("noindex") && homeHtml.includes("noindex"));
     check("home has no likes or rankings", !/leaderboard|like button|popularity/i.test(homeHtml) && !homeHtml.includes("id=\"like\""));
+    check(
+      "home hero uses the new tagline",
+      homeHtml.includes("Creating family traditions.") &&
+        homeHtml.includes("It was always about the small things.") &&
+        homeHtml.includes("Not the big holidays. The ones your family makes your own.") &&
+        !homeHtml.includes("Your family's own special days.")
+    );
+    check(
+      "home meta and og description use the tagline",
+      homeHtml.includes('name="description" content="Creating family traditions. It was always about the small things."') &&
+        homeHtml.includes('property="og:description" content="Creating family traditions. It was always about the small things."') &&
+        homeHtml.includes('property="og:image" content="/og.png"')
+    );
 
     const manifestRes = await fetch(`${base}/manifest.webmanifest`);
     const manifestType = manifestRes.headers.get("content-type") || "";
@@ -139,7 +152,8 @@ async function main() {
         manifest.display === "standalone" &&
         (manifest.start_url === "/" || manifest.start_url === "./") &&
         manifest.theme_color === "#ffffff" &&
-        manifest.background_color === "#ffffff",
+        manifest.background_color === "#ffffff" &&
+        manifest.description === "Creating family traditions. It was always about the small things.",
       JSON.stringify(manifest)
     );
     const purposes = (manifest.icons || []).flatMap((icon) => String(icon.purpose || "any").split(/\s+/));
@@ -367,8 +381,12 @@ async function main() {
       "shared link offers start-your-own and generic preview",
       passPage.ok &&
         passHtml.includes("Start your own family's traditions") &&
+        passHtml.includes("Creating family traditions.") &&
+        passHtml.includes("It was always about the small things.") &&
+        passHtml.includes("Not the big holidays. The ones your family makes your own.") &&
         passHtml.includes('property="og:image"') &&
         passHtml.includes("/og.png") &&
+        passHtml.includes('property="og:description" content="Creating family traditions. It was always about the small things."') &&
         (passPage.headers.get("x-robots-tag") || "").includes("noindex")
     );
 

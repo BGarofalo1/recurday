@@ -216,19 +216,24 @@ def make_og(path: Path) -> None:
         sans = ImageFont.truetype(str(SANS), int(40 * scale))
 
     title = "Recurday"
-    tag = "Your family's own special days."
+    tag_lines = [
+        "Creating family traditions.",
+        "It was always about the small things.",
+    ]
     # Center text
     tb = draw.textbbox((0, 0), title, font=serif)
     tw, th = tb[2] - tb[0], tb[3] - tb[1]
     tx = (w - tw) / 2 - tb[0]
-    ty = int(268 * scale)
+    ty = int(250 * scale)
     draw.text((tx, ty), title, font=serif, fill=INK)
 
-    gb = draw.textbbox((0, 0), tag, font=sans)
-    gw, gh = gb[2] - gb[0], gb[3] - gb[1]
-    gx = (w - gw) / 2 - gb[0]
-    gy = ty + th + int(22 * scale)
-    draw.text((gx, gy), tag, font=sans, fill=MUTED)
+    gy = ty + th + int(20 * scale)
+    for line in tag_lines:
+        gb = draw.textbbox((0, 0), line, font=sans)
+        gw, gh = gb[2] - gb[0], gb[3] - gb[1]
+        gx = (w - gw) / 2 - gb[0]
+        draw.text((gx, gy), line, font=sans, fill=MUTED)
+        gy += gh + int(8 * scale)
 
     out = img.resize((W, H), Image.Resampling.LANCZOS)
     path.parent.mkdir(parents=True, exist_ok=True)
