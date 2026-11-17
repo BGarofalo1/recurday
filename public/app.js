@@ -37,11 +37,8 @@ async function shrinkImage(file) {
 }
 
 async function prepareFile(file, edge = PHOTO_EDGE) {
-  if (file.type.startsWith("video/")) {
-    throw new Error("Video coming soon.");
-  }
   if (!file.type.startsWith("image/")) {
-    throw new Error("Please choose a photo.");
+    throw new Error("Photos only.");
   }
   const out = await shrinkImageTo(file, edge, edge <= PHOTO_THUMB ? 0.8 : 0.82);
   if (out.size > PHOTO_MAX) {
@@ -499,6 +496,46 @@ function postJson(url, body) {
   });
 }
 
+
+const IDEA_KEY = "recurday-idea";
+
+function ideaSlugFromPage() {
+  const fromUrl = new URLSearchParams(location.search).get("idea");
+  if (fromUrl) {
+    try { sessionStorage.setItem(IDEA_KEY, fromUrl); } catch {}
+    return fromUrl;
+  }
+  try { return sessionStorage.getItem(IDEA_KEY) || ""; } catch { return ""; }
+}
+
+function calendarPathWithIdea(base) {
+  const slug = ideaSlugFromPage();
+  const path = base || "/calendar";
+  if (!slug) return path;
+  const join = path.includes("?") ? "&" : "?";
+  return `${path}${join}idea=${encodeURIComponent(slug)}`;
+}
+
+function clearStoredIdea() {
+  try { sessionStorage.removeItem(IDEA_KEY); } catch {}
+}
+
+async function showPendingIdea() {
+  const el = $("#idea-pending");
+  const slug = ideaSlugFromPage();
+  if (!el || !slug) return;
+  try {
+    const res = await fetch("/api/ideas");
+    const body = await res.json();
+    const idea = (body.ideas || []).find((item) => item.slug === slug);
+    if (!idea) return;
+    el.textContent = `After you get started, we'll add ${idea.name}.`;
+    el.classList.remove("hidden");
+  } catch {}
+}
+
+showPendingIdea();
+
 const familyCreate = $("#family-create-form");
 if (familyCreate) {
   familyCreate.addEventListener("submit", async (event) => {
@@ -514,7 +551,7 @@ if (familyCreate) {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not create that family login.");
-      location.href = body.calendar_path || "/calendar";
+      location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
     } catch (e) {
       showError(err, e.message);
       if (btn) btn.disabled = false;
@@ -537,7 +574,7 @@ if (familyLogin) {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "That family name or passcode didn't work.");
-      location.href = body.calendar_path || "/calendar";
+      location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
     } catch (e) {
       showError(err, e.message);
       if (btn) btn.disabled = false;
@@ -562,7 +599,7 @@ if (claimForm) {
       const res = await postJson("/api/family/claim", payload);
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not set up that family login.");
-      location.href = body.calendar_path || "/calendar";
+      location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
     } catch (e) {
       showError(err, e.message);
       if (btn) btn.disabled = false;
@@ -593,6 +630,7 @@ if (calCreate) {
         const coverBody = await coverRes.json().catch(() => ({}));
         if (!coverRes.ok) throw new Error(coverBody.error || "The tradition was created, but the cover didn't upload.");
       }
+      clearStoredIdea();
       location.href = body.tradition_path || "/calendar";
     } catch (e) {
       showError(err, e.message);
@@ -783,10 +821,7 @@ function setupYearsPlayer() {
       stage.innerHTML = `<h2 class="yp-year">${frame.year}</h2>${frame.note ? `<p class="yp-note"></p>` : ""}`;
       const note = stage.querySelector(".yp-note");
       if (note) note.textContent = frame.note;
-    } else if ((frame.mime || "").startsWith("video/")) {
-      stage.innerHTML = `<p class="yp-year">${frame.year}</p><video controls playsinline autoplay src=""></video>`;
-      stage.querySelector("video").src = frame.url;
-    } else {
+    } else if ((frame.mime || "").startsWith("image/") || frame.url) {
       stage.innerHTML = `<p class="yp-year">${frame.year}</p><img alt="" src="">`;
       stage.querySelector("img").src = frame.url;
     }

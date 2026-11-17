@@ -8,7 +8,7 @@ Live: [https://recurday.bgarofalo1.workers.dev](https://recurday.bgarofalo1.work
 
 There is no app store. Recurday spreads by word of mouth when a family texts a link.
 
-The code is open source. Family photos, videos, and private links are not. Those stay with the family who made them, and they are never part of this repository.
+The code is open source. Family photos and private links are not. Those stay with the family who made them, and they are never part of this repository.
 
 ## Why Recurday
 
@@ -19,9 +19,10 @@ That idea stays in this file. The app itself just talks about giving, keeping, a
 ## What it does
 
 - Keep a shared family calendar as the home of your traditions. Each one can fall on a fixed date or on something like the second Saturday in December (Grinch Movie Night), and it comes back every year. A short note might read: “Everyone brings something green. No green, no screen.”
+- Browse **Ideas** — a quiet list of traditions a family can borrow and make their own. There are no likes, counts, rankings, or names. Tap **Make it ours** to start with that name, how-to, and date.
 - Set up one family login (a family name and one shared passcode) so everyone in the house can open the calendar. No email, and no individual accounts. You can claim an older private link into that login.
 - Tap **Text this to family**. The message is short and human, like: “Grinch Movie Night is coming up. It was always about the small things. [link]”. Recurday uses the phone's share sheet when it can, or opens a text message if it cannot. The person who gets the link sees the tradition right away — the cover, the name, the date, a few photos, and the tagline — with no sign-in.
-- Add photos for that year (shrunk on the phone, about 2 MB each). Video coming soon.
+- Add photos for that year (shrunk on the phone, about 2 MB each). Photos only — it's about staying in the moment.
 - Give a tradition a cover picture — upload one, or pick a photo already kept with that day. It appears at the top of the tradition page, as a small round thumbnail on the calendar, and as the opening card of Watch the years. If there's no cover, the tradition's rainbow hue stands in. Covers stay private like other photos; link previews stay the generic image.
 - Rewatch **Watch the years**: a quiet slideshow, oldest year first, with the year named and then that year's photos.
 - Optionally **Pass it on** — a revocable invite to another family. They can look, and they can tap **Start this tradition too**, which copies the practice, not the photos. When they open the link they also see a quiet **Start your own** at the bottom.
@@ -40,7 +41,7 @@ Recurday is built so families can share a practice without slipping into rivalry
 
 ## Add it to your home screen
 
-Recurday is a Progressive Web App. It uses a small service worker that caches only the public app shell (the home page, styles, and the offline message) so it opens quickly. Family photos, videos, tradition pages, the calendar, and family login routes are never cached on the device.
+Recurday is a Progressive Web App. It uses a small service worker that caches only the public app shell (the home page, styles, and the offline message) so it opens quickly. Family photos, tradition pages, the calendar, and family login routes are never cached on the device.
 
 **On iPhone:** open a Recurday link in Safari, tap the Share button (the square with an arrow), then **Add to Home Screen**.
 

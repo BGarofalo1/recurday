@@ -1,4 +1,5 @@
 import { occurDate, parseTiming, ruleFromDate, upcomingFor, buildIcs, nthWeekdayOfMonth, monthGrid, describeRule } from "../src/calendar.js";
+import { IDEAS, ideaBySlug, nextIdeaDate } from "../src/ideas.js";
 import { hashPasscode, signSession, verifySession, validFamilyName, nameKey, seal, unseal, hexToBytes, timingSafeEqual } from "../src/auth.js";
 import { ZipBuilder, crc32, slugPart } from "../src/zip.js";
 
@@ -98,5 +99,14 @@ check("zip contains both file names", new TextDecoder().decode(bytes).includes("
 check("crc32 of hello is well-known", crc32(new TextEncoder().encode("hello")) === 0x3610a686);
 check("slug is filesystem-safe", slugPart("Grinch Movie Night!") === "grinch-movie-night");
 
+const grinch = ideaBySlug("grinch-movie-night");
+check("ideas include Grinch Movie Night", grinch && grinch.timing === "Second Saturday in December" && /No green, no screen/.test(grinch.practice));
+check("every idea has a name, how-to, date rule, and slug", IDEAS.length >= 9 && IDEAS.every((idea) => idea.slug && idea.name && idea.practice && idea.timing && parseTiming(idea.timing)));
+check("Grinch Movie Night next falls on December 12 2026", nextIdeaDate(grinch, "2026-11-17") === "2026-12-12");
+const blocked = new Set(["2026-01-01", "2027-01-01", "2028-01-01", "2026-07-04", "2027-07-04", "2028-07-04", "2026-10-31", "2027-10-31", "2028-10-31", "2026-11-26", "2027-11-25", "2028-11-23", "2026-12-25", "2027-12-25", "2028-12-25"]);
+const ideaDates = IDEAS.flatMap((idea) => [2026, 2027, 2028].map((year) => occurDate(parseTiming(idea.timing), year)));
+check("ideas stay off major holidays", ideaDates.every((date) => date && !blocked.has(date)), JSON.stringify(ideaDates.filter((date) => blocked.has(date))));
+
 console.log(`\n${passed} passed, ${failed} failed`);
+
 if (failed) process.exit(1);

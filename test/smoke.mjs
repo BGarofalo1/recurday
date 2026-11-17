@@ -125,6 +125,7 @@ async function main() {
     const home = await fetch(`${base}/`);
     const homeHtml = await home.text();
     check("home page loads", home.ok && homeHtml.includes("Start a tradition"));
+    check("home quietly links to ideas", homeHtml.includes('href="/ideas"') && homeHtml.includes("Ideas"));
     check("home is noindex", (home.headers.get("x-robots-tag") || "").includes("noindex") && homeHtml.includes("noindex"));
     check("home has no likes or rankings", !/leaderboard|like button|popularity/i.test(homeHtml) && !homeHtml.includes("id=\"like\""));
     check(
@@ -140,6 +141,20 @@ async function main() {
         homeHtml.includes('property="og:description" content="Creating family traditions. It was always about the small things."') &&
         homeHtml.includes('property="og:image" content="/og.png"')
     );
+
+
+    const ideasPage = await fetch(`${base}/ideas`);
+    const ideasHtml = await ideasPage.text();
+    check("ideas page loads", ideasPage.ok && ideasHtml.includes("<h1>Ideas</h1>") && ideasHtml.includes("Make it ours") && ideasHtml.includes("Grinch Movie Night") && ideasHtml.includes("Everyone brings something green. No green, no screen.") && ideasHtml.includes("Second Saturday in December"));
+    check("ideas page is noindex and has no ranks or names of people", (ideasPage.headers.get("x-robots-tag") || "").includes("noindex") && !/leaderboard|like button|popularity/i.test(ideasHtml) && !ideasHtml.includes('id="like"') && !ideasHtml.includes("Girard"));
+    check("ideas page has a few more traditions to borrow", ideasHtml.includes("First-snow pancakes") && ideasHtml.includes("Backwards dinner") && ideasHtml.includes("Leaf-pile day") && ideasHtml.includes("/calendar?idea=grinch-movie-night"));
+    const ideasApi = await fetch(`${base}/api/ideas`);
+    const ideasBody = await ideasApi.json();
+    check("ideas api is a static list", ideasApi.ok && Array.isArray(ideasBody.ideas) && ideasBody.ideas.length >= 9 && ideasBody.ideas.every((idea) => idea.slug && idea.name && idea.practice && idea.timing));
+
+    const ideasAnonCal = await fetch(`${base}/calendar?idea=grinch-movie-night`, { redirect: "manual" });
+    const ideasAnonLoc = ideasAnonCal.headers.get("location") || "";
+    check("logged-out make-it-ours goes to get started", (ideasAnonCal.status === 303 || ideasAnonCal.status === 302) && ideasAnonLoc.includes("idea=grinch-movie-night"));
 
     const manifestRes = await fetch(`${base}/manifest.webmanifest`);
     const manifestType = manifestRes.headers.get("content-type") || "";
@@ -258,7 +273,7 @@ async function main() {
         familyHtml.includes("/icons/mark.svg") &&
         /class="wrap hue-(red|orange|yellow|green|blue|indigo|violet)"/.test(familyHtml)
     );
-    check("video upload is hidden with coming-soon note", familyHtml.includes("Video coming soon") && familyHtml.includes('accept="image/jpeg,image/png,image/webp,image/gif"') && !familyHtml.includes("video/mp4"));
+    check("upload form is photos only", familyHtml.includes("Photos shrink on your phone.") && familyHtml.includes('accept="image/jpeg,image/png,image/webp,image/gif"') && !familyHtml.includes("video/mp4") && !/video coming soon/i.test(familyHtml));
 
     const form = new FormData();
     form.set("t", householdToken);
@@ -269,13 +284,13 @@ async function main() {
     const up = await uploaded.json();
     check("upload photo for 2024", uploaded.status === 201 && up.media_id, JSON.stringify(up));
 
-    const videoForm = new FormData();
-    videoForm.set("t", householdToken);
-    videoForm.set("year", "2024");
-    videoForm.set("file", new Blob([new Uint8Array([0, 0, 0, 0])], { type: "video/mp4" }), "clip.mp4");
-    const videoUp = await fetch(`${base}/api/upload`, { method: "POST", body: videoForm });
-    const videoBody = await videoUp.json();
-    check("video upload is rejected", videoUp.status === 400 && /coming soon/i.test(videoBody.error || ""), JSON.stringify(videoBody));
+    const nonPhotoForm = new FormData();
+    nonPhotoForm.set("t", householdToken);
+    nonPhotoForm.set("year", "2024");
+    nonPhotoForm.set("file", new Blob([new Uint8Array([0, 0, 0, 0])], { type: "video/mp4" }), "clip.mp4");
+    const nonPhotoUp = await fetch(`${base}/api/upload`, { method: "POST", body: nonPhotoForm });
+    const nonPhotoBody = await nonPhotoUp.json();
+    check("non-photo upload is rejected", nonPhotoUp.status === 400 && nonPhotoBody.error === "Photos only.", JSON.stringify(nonPhotoBody));
 
     const mediaUrl = `${base}/media/${up.media_id}?t=${encodeURIComponent(householdToken)}`;
     const mediaOk = await fetch(mediaUrl);
@@ -430,6 +445,18 @@ async function main() {
     const calendar = await fetch(`${base}/calendar`, { headers: { cookie: loginCookie } });
     const calHtml = await calendar.text();
     check("calendar is the family home", calendar.ok && calHtml.includes("Our traditions") && calHtml.includes("Upcoming") && (calendar.headers.get("x-robots-tag") || "").includes("noindex"));
+    check("calendar more links to ideas", calHtml.includes('href="/ideas"'));
+    const ideaCal = await fetch(`${base}/calendar?idea=grinch-movie-night`, { headers: { cookie: loginCookie } });
+    const ideaCalHtml = await ideaCal.text();
+    check(
+      "logged-in make-it-ours prefills a new tradition",
+      ideaCal.ok &&
+        ideaCalHtml.includes('id="add-tradition"') &&
+        ideaCalHtml.includes('value="Grinch Movie Night"') &&
+        ideaCalHtml.includes("Everyone brings something green. No green, no screen.") &&
+        ideaCalHtml.includes("2026-12-12") &&
+        ideaCalHtml.includes('value="nth_weekday" selected')
+    );
     check("calendar is not a public listing", !/leaderboard|most popular|referral/i.test(calHtml));
 
     const calAnon = await fetch(`${base}/calendar`, { redirect: "manual" });

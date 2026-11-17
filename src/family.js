@@ -38,6 +38,7 @@ import { ZipBuilder, slugPart } from "./zip.js";
 import { json, html, esc, pageShell, familyNav, nowIso, clip, originOf, isSecureRequest, SECURITY } from "./http.js";
 import { mediaStore } from "./storage.js";
 import { PHOTO_MAX, PHOTO_TYPES, extForMime, coverUrls, isDedicatedCoverKey } from "./cover.js";
+import { ideaBySlug, ideaRecurType, nextIdeaDate } from "./ideas.js";
 
 const EXPORT_MAX = 40 * 1024 * 1024;
 const NAME_MAX = 80;
@@ -461,8 +462,7 @@ async function setFamilyCover(request, env) {
     return json({ error: "Choose a photo first." }, 400);
   }
   const mime = (file.type || "application/octet-stream").toLowerCase();
-  if (mime.startsWith("video/")) return json({ error: "Video coming soon." }, 400);
-  if (!PHOTO_TYPES.has(mime)) return json({ error: "Please choose a photo." }, 400);
+  if (!PHOTO_TYPES.has(mime)) return json({ error: "Photos only." }, 400);
   if (file.size > PHOTO_MAX) return json({ error: "That photo is too large. Please keep it to about 2 MB." }, 400);
 
   const usage = await env.DB.prepare(
@@ -522,15 +522,26 @@ async function loadFamilyTraditions(env, familyId) {
 export async function calendarPage(request, env, url) {
   const family = await familyFromRequest(request, env);
   if (!family) {
-    return new Response(null, { status: 303, headers: { ...SECURITY, location: "/" } });
+    const idea = url.searchParams.get("idea");
+    const location = idea ? `/?idea=${encodeURIComponent(idea)}` : "/";
+    return new Response(null, { status: 303, headers: { ...SECURITY, location } });
   }
   const now = new Date();
-  const year = Number(url.searchParams.get("year")) || now.getFullYear();
-  const month = Number(url.searchParams.get("month")) || now.getMonth() + 1;
+  const today = url.searchParams.get("on") || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const idea = ideaBySlug(url.searchParams.get("idea") || "");
+  let add = url.searchParams.get("add") || "";
+  if (idea && !add) add = nextIdeaDate(idea, today);
+  let year = Number(url.searchParams.get("year")) || now.getFullYear();
+  let month = Number(url.searchParams.get("month")) || now.getMonth() + 1;
+  if (idea && add && !url.searchParams.get("year") && !url.searchParams.get("month")) {
+    const parts = add.split("-").map(Number);
+    if (parts.length === 3 && parts[0] && parts[1]) {
+      year = parts[0];
+      month = parts[1];
+    }
+  }
   const safeYear = year >= 1900 && year <= 2100 ? year : now.getFullYear();
   const safeMonth = month >= 1 && month <= 12 ? month : now.getMonth() + 1;
-  const today = url.searchParams.get("on") || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const add = url.searchParams.get("add") || "";
   const traditions = await loadFamilyTraditions(env, family.id);
   const origin = originOf(request);
   const cells = monthGrid(safeYear, safeMonth).map((cell) => {
@@ -585,7 +596,7 @@ export async function calendarPage(request, env, url) {
     ).join("")}</ul>`
     : `<p class="empty">Tap a day to add one.</p>`;
 
-  const addCard = add ? renderAddCard(add) : "";
+  const addCard = add ? renderAddCard(add, idea) : "";
 
   const body = `
     <p class="eyebrow">${esc(family.name)}</p>
@@ -612,6 +623,7 @@ export async function calendarPage(request, env, url) {
     ${unscheduledHtml}
     <details class="more">
       <summary>More</summary>
+      <p class="more-link"><a href="/ideas">Ideas</a></p>
       <div class="card">
         <h2>Family passcode</h2>
         <p>Everyone at home uses the name <strong>${esc(family.name)}</strong> and the same passcode.</p>
@@ -653,21 +665,25 @@ export async function calendarPage(request, env, url) {
   }));
 }
 
-function renderAddCard(iso) {
+function renderAddCard(iso, idea) {
   const label = iso;
+  const nameVal = idea ? ` value="${esc(idea.name)}"` : "";
+  const practiceVal = idea ? esc(idea.practice) : "";
+  const nth = idea && ideaRecurType(idea) === "nth_weekday";
   return `
     <div class="card" id="add-tradition">
       <h2>Add a tradition on ${esc(label)}</h2>
+      ${idea ? `<p class="hint">Change anything you like.</p>` : ""}
       <form id="calendar-create-form">
         <input type="hidden" name="date" value="${esc(iso)}">
         <label for="cal-name">What do you call it?</label>
-        <input id="cal-name" name="name" type="text" required maxlength="80" placeholder="Grinch Movie Night">
+        <input id="cal-name" name="name" type="text" required maxlength="80" placeholder="Grinch Movie Night"${nameVal}>
         <label for="cal-practice">How do you do it?</label>
-        <textarea id="cal-practice" name="practice_note" maxlength="2000" placeholder="Everyone brings something green. No green, no screen."></textarea>
+        <textarea id="cal-practice" name="practice_note" maxlength="2000" placeholder="Everyone brings something green. No green, no screen.">${practiceVal}</textarea>
         <label for="cal-repeat">Repeat each year</label>
         <select id="cal-repeat" name="recur_type">
-          <option value="fixed" selected>On this date every year</option>
-          <option value="nth_weekday">On this weekday every year (for example, the second Saturday)</option>
+          <option value="fixed"${nth ? "" : " selected"}>On this date every year</option>
+          <option value="nth_weekday"${nth ? " selected" : ""}>On this weekday every year (for example, the second Saturday)</option>
         </select>
         <label for="cal-cover">A cover picture (optional)</label>
         <input id="cal-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
@@ -779,7 +795,7 @@ export async function familyExport(request, env, url) {
     for (const day of days) {
       let i = 1;
       for (const m of day.media) {
-        const ext = (m.mime || "").includes("png") ? "png" : (m.mime || "").includes("webp") ? "webp" : (m.mime || "").includes("gif") ? "gif" : "jpg";
+        const ext = extForMime(m.mime);
         const filename = `${String(i).padStart(2, "0")}.${ext}`;
         const path = `traditions/${folder}/${day.year}/${filename}`;
         const obj = await mediaStore(env).get(m.r2_key);
@@ -787,7 +803,7 @@ export async function familyExport(request, env, url) {
           const buf = await mediaBytes(obj);
           if (!buf) continue;
           zip.add(path, buf);
-          photos.push({ year: day.year, path, note: day.note, observed_on: day.observed_on });
+          photos.push({ year: day.year, path, note: day.note, observed_on: day.observed_on, mime: m.mime || "" });
           i += 1;
         }
       }
@@ -801,7 +817,7 @@ export async function familyExport(request, env, url) {
         year: d.year,
         observed_on: d.observed_on,
         note: d.note,
-        photos: photos.filter((p) => p.year === d.year).map((p) => p.path),
+        photos: photos.filter((p) => p.year === d.year).map((p) => ({ path: p.path, mime: p.mime || "" })),
       })),
     };
     zip.add(`traditions/${folder}/tradition.json`, JSON.stringify(meta, null, 2));
@@ -867,7 +883,14 @@ function tCoverKey(tradition) {
 function exportIndexHtml(familyName, exportedAt, traditions) {
   const sections = traditions.map((t) => {
     const years = (t.days || []).map((d) => {
-      const imgs = (d.photos || []).map((p) => `<p><img src="${esc(p)}" alt=""></p>`).join("");
+      const imgs = (d.photos || []).map((p) => {
+        const path = typeof p === "string" ? p : p.path;
+        const mime = typeof p === "string" ? "" : (p.mime || "");
+        if (String(mime).startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(path)) {
+          return `<p><img src="${esc(path)}" alt=""></p>`;
+        }
+        return `<p><a href="${esc(path)}">Open this file</a></p>`;
+      }).join("");
       return `<h3>${d.year}</h3>${d.observed_on ? `<p>${esc(d.observed_on)}</p>` : ""}${d.note ? `<p>${esc(d.note)}</p>` : ""}${imgs || "<p>No photos this year.</p>"}`;
     }).join("");
     return `<section>

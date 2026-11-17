@@ -5,6 +5,7 @@ import { sha256hex, randomToken } from "./auth.js";
 import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, canClaimRole } from "./family.js";
 import { coverUrls } from "./cover.js";
 import { saveHouseholdToken, rotateHouseholdToken, familyLinkUrl } from "./links.js";
+import { IDEAS, renderIdeasBody } from "./ideas.js";
 
 const NAME_MAX = 80;
 const TIMING_MAX = 200;
@@ -17,7 +18,6 @@ const YEAR_MIN = 1900;
 const YEAR_MAX = 2100;
 
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 
 export default {
   async fetch(request, env) {
@@ -46,11 +46,14 @@ async function handle(request, env) {
   if (path.startsWith("/s/")) return traditionPage(request, env, url, "share");
   if (path.startsWith("/f/")) return familyTraditionPage(request, env, url);
   if (path === "/calendar") return calendarPage(request, env, url);
+  if (path === "/ideas") return ideasPage(request, env);
   if (path.startsWith("/cal/")) return calendarFeed(request, env, url);
   if (path.startsWith("/family/export")) return familyExport(request, env, url);
 
   if ((path === "/" || path === "/index.html") && request.method === "GET" && await familyFromRequest(request, env)) {
-    return new Response(null, { status: 303, headers: { ...SECURITY, location: "/calendar" } });
+    const idea = url.searchParams.get("idea");
+    const location = idea ? `/calendar?idea=${encodeURIComponent(idea)}` : "/calendar";
+    return new Response(null, { status: 303, headers: { ...SECURITY, location } });
   }
 
   if (path === "/sw.js") {
@@ -84,6 +87,7 @@ async function handle(request, env) {
 
 async function api(request, env, url) {
   const path = url.pathname;
+  if (request.method === "GET" && path === "/api/ideas") return json({ ideas: IDEAS });
   if (request.method === "POST" && path === "/api/traditions") return createTradition(request, env);
   if (request.method === "GET" && path === "/api/tradition") return traditionJson(request, env, url);
   if (request.method === "POST" && path === "/api/days") return upsertDay(request, env);
@@ -351,10 +355,7 @@ async function upload(request, env) {
     return json({ error: "Choose a photo first." }, 400);
   }
   const mime = (file.type || "application/octet-stream").toLowerCase();
-  if (VIDEO_TYPES.has(mime) || mime.startsWith("video/")) {
-    return json({ error: "Video coming soon." }, 400);
-  }
-  if (!PHOTO_TYPES.has(mime)) return json({ error: "Please choose a photo." }, 400);
+  if (!PHOTO_TYPES.has(mime)) return json({ error: "Photos only." }, 400);
   if (file.size > PHOTO_MAX) return json({ error: "That photo is too large. Please keep it to about 2 MB." }, 400);
   const usage = await traditionUsage(env, auth.tradition.id);
   if (usage.items >= TRADITION_MAX_ITEMS) {
@@ -658,10 +659,14 @@ function previewPhotos(days, limit = 6) {
   return out;
 }
 
+function isPhotoMime(mime) {
+  return String(mime || "").startsWith("image/");
+}
+
 function mediaItem(m) {
-  return m.mime.startsWith("video/")
-    ? `<video controls playsinline preload="metadata" src="${esc(m.url)}"></video>`
-    : `<img alt="" src="${esc(m.url)}">`;
+  if (isPhotoMime(m.mime)) return `<img alt="" src="${esc(m.url)}">`;
+  if (!m.url) return "";
+  return `<a class="media-file" href="${esc(m.url)}">Open this file</a>`;
 }
 
 function coverHero(data) {
@@ -707,7 +712,7 @@ function renderUploadForm(data, { selected, selectedDay, token }) {
         <textarea id="day_note" name="note" maxlength="2000">${esc(selectedDay?.note || "")}</textarea>
         <label for="file">A photo</label>
         <input id="file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
-        <p class="hint">Photos shrink on your phone. Video coming soon.</p>
+        <p class="hint">Photos shrink on your phone.</p>
         <button class="btn" type="submit">Add photos</button>
         <p class="hint" id="upload-status"></p>
         <p class="error hidden" id="upload-error"></p>
@@ -858,7 +863,7 @@ function renderThroughTheYears(days, role, cover, tradition) {
   const years = [...(days || [])].sort((a, b) => a.year - b.year).map((d) => ({
     year: d.year,
     note: d.note || "",
-    photos: (d.media || []).map((m) => ({ url: m.url, mime: m.mime })),
+    photos: (d.media || []).filter((m) => isPhotoMime(m.mime)).map((m) => ({ url: m.url, mime: m.mime })),
   })).filter((d) => d.photos.length);
   if (!years.length && !(cover && cover.hasCover)) return "";
   const payload = {
@@ -951,4 +956,17 @@ function renderClaim(data, token, family) {
         <p class="error hidden" id="claim-error"></p>
       </form>
     </div>`;
+}
+
+async function ideasPage(request, env) {
+  const family = await familyFromRequest(request, env);
+  return html(pageShell({
+    title: "Ideas — Recurday",
+    description: "Borrow a family tradition idea. Make it yours.",
+    ogTitle: "Ideas — Recurday",
+    ogDescription: "Borrow a family tradition idea. Make it yours.",
+    origin: originOf(request),
+    nav: familyNav(family),
+    body: renderIdeasBody(),
+  }));
 }

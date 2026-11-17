@@ -294,8 +294,7 @@ input:focus, textarea:focus {
   .media-grid { grid-template-columns: 1fr 1fr; }
 }
 
-.media-grid img,
-.media-grid video {
+.media-grid img {
   width: 100%;
   height: auto;
   border-radius: 0.8rem;
@@ -630,7 +629,7 @@ hr.soft {
   margin: 0;
 }
 .years-player .yp-note { color: #d9cbb8; text-align: center; max-width: 28rem; }
-.years-player img, .years-player video {
+.years-player img {
   max-width: min(100%, 40rem);
   max-height: 70dvh;
   width: auto;
@@ -702,8 +701,7 @@ hr.soft {
   text-underline-offset: 0.15em;
 }
 .practice { white-space: pre-wrap; margin: 0.2rem 0 1rem; }
-.shared-photos img,
-.shared-photos video {
+.shared-photos img {
   width: 100%;
   border-radius: 0.8rem;
 }
@@ -715,3 +713,37 @@ hr.soft {
   margin: 0.35rem 0 0.2rem;
   text-align: center;
 }
+
+.media-file {
+  display: inline-block;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.quiet-links {
+  margin: 0 0 1.1rem;
+  font-size: 0.95rem;
+}
+.quiet-links a,
+.more-link a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.more-link { margin: 0.2rem 0 0.8rem; }
+.idea-list {
+  display: grid;
+  gap: 0.9rem;
+  margin: 1.1rem 0 0;
+}
+.idea-card h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.35rem;
+}
+.idea-how { margin: 0 0 0.45rem; }
+.idea-when {
+  color: var(--muted);
+  margin: 0 0 0.9rem;
+}
+.idea-card .btn { margin-top: 0; }

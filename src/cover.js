@@ -6,7 +6,14 @@ export function extForMime(mime) {
   if (m === "image/png") return "png";
   if (m === "image/webp") return "webp";
   if (m === "image/gif") return "gif";
-  return "jpg";
+  if (m === "image/jpeg" || m === "image/jpg") return "jpg";
+  const sub = (m.split("/")[1] || "").split("+")[0];
+  if (/^[a-z0-9]+$/.test(sub) && sub !== "octet-stream") {
+    if (sub === "jpeg") return "jpg";
+    if (sub === "quicktime") return "mov";
+    return sub;
+  }
+  return "bin";
 }
 
 export function hasCover(tradition) {
