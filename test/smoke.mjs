@@ -230,9 +230,9 @@ async function main() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        name: "Pancake Saturday",
-        timing_note: "First Saturday in June",
-        practice_note: "Pancakes, then the creek.",
+        name: "Grinch Movie Night",
+        timing_note: "Second Saturday in December",
+        practice_note: "Everyone brings something green. No green, no screen.",
       }),
     });
     const trad = await created.json();
@@ -242,9 +242,12 @@ async function main() {
 
     const familyPage = await fetch(`${base}${trad.household_path}`);
     const familyHtml = await familyPage.text();
-    check("household page title and og", familyPage.ok && familyHtml.includes("<title>Pancake Saturday — Recurday</title>") && familyHtml.includes('property="og:title" content="Pancake Saturday"'));
+    check("household page title and og", familyPage.ok && familyHtml.includes("<title>Grinch Movie Night — Recurday</title>") && familyHtml.includes('property="og:title" content="Grinch Movie Night"'));
     check("household page noindex", (familyPage.headers.get("x-robots-tag") || "").includes("noindex"));
-    check("household page has text-to-family", familyHtml.includes("Text this to family"));
+    const keeperPage = await fetch(`${base}${trad.admin_path}`);
+    const keeperHomeHtml = await keeperPage.text();
+    check("keeper page has text-to-family", keeperPage.ok && keeperHomeHtml.includes("Text this to family"));
+    check("household page is the shared-link view", familyHtml.includes("Creating family traditions.") && familyHtml.includes("It was always about the small things.") && familyHtml.includes("Start your own") && familyHtml.includes("Everyone brings something green. No green, no screen."));
     check("household page has no like/count chrome", !familyHtml.includes("leaderboard") && !familyHtml.includes('id="like"') && !familyHtml.includes("Like this"));
     check("household link preview uses generic image", familyHtml.includes('property="og:image"') && familyHtml.includes("/og.png") && !/property="og:image" content="[^"]*\/media\//.test(familyHtml));
     check(
@@ -297,7 +300,7 @@ async function main() {
 
     const pending = await fetch(`${base}${share.invite_path}`);
     const pendingHtml = await pending.text();
-    check("invite is gated until accept", pending.ok && pendingHtml.includes("Accept and view") && !pendingHtml.includes(`/media/${up.media_id}`));
+    check("invite is gated until accept", pending.ok && pendingHtml.includes("Have a look") && !pendingHtml.includes(`/media/${up.media_id}`));
     const mediaPending = await fetch(`${base}/media/${up.media_id}?t=${encodeURIComponent(shareToken)}`);
     check("media hidden before accept", mediaPending.status === 404);
 
@@ -344,7 +347,7 @@ async function main() {
 
     const copyPage = await fetch(`${base}${copy.household_path}`);
     const copyHtml = await copyPage.text();
-    check("copied practice has the same name and notes", copyPage.ok && copyHtml.includes("Pancake Saturday") && copyHtml.includes("Pancakes, then the creek.") && copyHtml.includes("First Saturday in June"));
+    check("copied practice has the same name and notes", copyPage.ok && copyHtml.includes("Grinch Movie Night") && copyHtml.includes("Everyone brings something green. No green, no screen.") && copyHtml.includes("Second Saturday in December"));
     check("copied tradition does not include their media", !copyHtml.includes(`/media/${up.media_id}`));
     const copyJson = await (await fetch(`${base}/api/tradition?t=${encodeURIComponent(copy.household_path.split("/t/")[1])}`)).json();
     const copyMediaCount = (copyJson.days || []).reduce((n, d) => n + (d.media?.length || 0), 0);
@@ -362,11 +365,11 @@ async function main() {
     const mediaRevoked = await fetch(`${base}/media/${up.media_id}?t=${encodeURIComponent(shareToken)}`);
     check("revoked invite cannot see media", mediaRevoked.status === 404);
     const copyStill = await fetch(`${base}${copy.household_path}`);
-    check("their own started tradition still works after revoke", copyStill.ok && (await copyStill.text()).includes("Pancake Saturday"));
+    check("their own started tradition still works after revoke", copyStill.ok && (await copyStill.text()).includes("Grinch Movie Night"));
 
     const keeper = await fetch(`${base}${trad.admin_path}`);
     const keeperHtml = await keeper.text();
-    check("keeper page can still rewatch", keeper.ok && keeperHtml.includes("Pancake Saturday") && keeperHtml.includes("Pass it on"));
+    check("keeper page can still rewatch", keeper.ok && keeperHtml.includes("Grinch Movie Night") && keeperHtml.includes("Pass it on"));
 
     const passOn = await fetch(`${base}/api/shares`, {
       method: "POST",
@@ -380,7 +383,7 @@ async function main() {
     check(
       "shared link offers start-your-own and generic preview",
       passPage.ok &&
-        passHtml.includes("Start your own family's traditions") &&
+        passHtml.includes("Start your own") &&
         passHtml.includes("Creating family traditions.") &&
         passHtml.includes("It was always about the small things.") &&
         passHtml.includes("Not the big holidays. The ones your family makes your own.") &&
@@ -391,7 +394,7 @@ async function main() {
     );
 
     const yearHtml2 = await (await fetch(`${base}${trad.household_path}?year=2024`)).text();
-    check("through the years is offered when a year has photos", yearHtml2.includes("Through the years") && yearHtml2.includes("id=\"years-data\""));
+    check("through the years is offered when a year has photos", yearHtml2.includes("Watch the years") && yearHtml2.includes("id=\"years-data\""));
 
     const createdFamily = await fetch(`${base}/api/family/create`, {
       method: "POST",
@@ -442,13 +445,13 @@ async function main() {
     const madeOnCal = await fetch(`${base}/api/family/traditions`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: loginCookie },
-      body: JSON.stringify({ name: "Pancake Saturday", practice_note: "Pancakes together.", date: "2026-06-06", recur_type: "nth_weekday" }),
+      body: JSON.stringify({ name: "Grinch Movie Night", practice_note: "Everyone brings something green. No green, no screen.", date: "2026-12-12", recur_type: "nth_weekday" }),
     });
     const made = await madeOnCal.json();
     check("logged-in family can add a tradition from a date", madeOnCal.status === 201 && made.tradition_path, JSON.stringify(made));
-    const calJune = await fetch(`${base}/calendar?year=2026&month=6`, { headers: { cookie: loginCookie } });
+    const calJune = await fetch(`${base}/calendar?year=2026&month=12`, { headers: { cookie: loginCookie } });
     const juneHtml = await calJune.text();
-    check("calendar shows the tradition on its date", calJune.ok && juneHtml.includes("Pancake Saturday") && juneHtml.includes("/f/") && juneHtml.includes("hue-"));
+    check("calendar shows the tradition on its date", calJune.ok && juneHtml.includes("Grinch Movie Night") && juneHtml.includes("/f/") && juneHtml.includes("hue-"));
     check("calendar uses a hue fallback when a tradition has no cover", juneHtml.includes("cal-thumb fallback") && !juneHtml.includes("/media/cover/"));
 
     const tradPageBefore = await fetch(`${base}${made.tradition_path}`, { headers: { cookie: loginCookie } });
@@ -501,7 +504,7 @@ async function main() {
     const coverThumb = await fetch(`${base}${coverBody.thumb}`, { headers: { cookie: loginCookie } });
     check("cover thumbnail is served", coverThumb.ok);
 
-    const calCovered = await fetch(`${base}/calendar?year=2026&month=6`, { headers: { cookie: loginCookie } });
+    const calCovered = await fetch(`${base}/calendar?year=2026&month=12`, { headers: { cookie: loginCookie } });
     const calCoveredHtml = await calCovered.text();
     check(
       "calendar shows a round cover thumbnail",
@@ -566,7 +569,7 @@ async function main() {
         zipBuf[0] === 0x50 && zipBuf[1] === 0x4b &&
         zipText.includes("family.json") &&
         zipText.includes("index.html") &&
-        zipText.includes("Pancake Saturday") &&
+        zipText.includes("Grinch Movie Night") &&
         (zipText.includes("cover.jpg") || zipText.includes("cover.jpeg")),
       `status=${exported.status} type=${exported.headers.get("content-type")} cover=${zipText.includes("cover.jpg")} len=${zipBuf.length}`
     );

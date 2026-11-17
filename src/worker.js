@@ -1,9 +1,10 @@
 import { mediaStore } from "./storage.js";
-import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf, TAGLINE } from "./http.js";
+import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf, TAGLINE, TAGLINE_SUPPORT } from "./http.js";
 import { hueOf, parseTiming, bindRule, describeRule } from "./calendar.js";
 import { sha256hex, randomToken } from "./auth.js";
 import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, canClaimRole } from "./family.js";
 import { coverUrls } from "./cover.js";
+import { saveHouseholdToken, rotateHouseholdToken, familyLinkUrl } from "./links.js";
 
 const NAME_MAX = 80;
 const TIMING_MAX = 200;
@@ -272,6 +273,7 @@ async function createTradition(request, env) {
     family ? family.id : null,
     bound.recur_type, bound.recur_month, bound.recur_day, bound.recur_nth, bound.recur_weekday
   ).run();
+  await saveHouseholdToken(env, id, household);
 
   const origin = originOf(request);
   const payload = {
@@ -535,6 +537,7 @@ async function copyTradition(request, env) {
     await sha256hex(household),
     await sha256hex(admin)
   ).run();
+  await saveHouseholdToken(env, id, household);
   await env.DB.prepare(
     "INSERT INTO copies (new_tradition_id, source_tradition_id, created_at) VALUES (?, ?, ?)"
   ).bind(id, auth.tradition.id, created_at).run();
@@ -554,10 +557,7 @@ async function rotateHousehold(request, env) {
   const auth = await resolveRequest(request, env, body);
   if (!auth || !auth.tradition) return json({ error: "We couldn't find that link." }, 404);
   if (auth.role !== "admin" && auth.role !== "family") return json({ error: "Only your family or the keeper link can make a fresh family link." }, 403);
-  const household = randomToken();
-  await env.DB.prepare(
-    "UPDATE traditions SET household_token_hash = ? WHERE id = ?"
-  ).bind(await sha256hex(household), auth.tradition.id).run();
+  const household = await rotateHouseholdToken(env, auth.tradition.id);
   const origin = originOf(request);
   return json({
     household_path: `/t/${household}`,
@@ -609,7 +609,13 @@ async function familyTraditionPage(request, env, url) {
 
 async function renderTraditionResponse(request, env, auth, url, { newHousehold, family, token }) {
   const yearParam = Number(url.searchParams.get("year"));
-  const data = await present(env, auth, originOf(request));
+  const origin = originOf(request);
+  const data = await present(env, auth, origin);
+  if (auth.role === "admin" || auth.role === "family") {
+    data.family_link_url = await familyLinkUrl(env, auth.tradition, origin);
+  } else if (auth.role === "household") {
+    data.family_link_url = `${origin}/t/${token}`;
+  }
   const years = data.days.map((d) => d.year);
   const currentYear = new Date().getFullYear();
   let selected = yearOk(yearParam) ? yearParam : (years[0] || currentYear);
@@ -617,12 +623,12 @@ async function renderTraditionResponse(request, env, auth, url, { newHousehold, 
   const selectedDay = data.days.find((d) => d.year === selected);
   const body = renderTradition(data, { selected, selectedDay, currentYear, token, newHousehold, family });
   const when = data.tradition.timing_note || "A family tradition";
-  const isShare = auth.role === "share";
+  const isLinkPage = auth.role === "share" || auth.role === "household";
   return html(pageShell({
     title: `${data.tradition.name} — Recurday`,
-    description: isShare ? TAGLINE : when,
-    ogTitle: isShare ? "Recurday" : data.tradition.name,
-    ogDescription: isShare ? TAGLINE : [when, data.tradition.practice_note].filter(Boolean).join(" — ").slice(0, 180),
+    description: isLinkPage ? TAGLINE : when,
+    ogTitle: auth.role === "share" ? "Recurday" : data.tradition.name,
+    ogDescription: isLinkPage ? TAGLINE : [when, data.tradition.practice_note].filter(Boolean).join(" — ").slice(0, 180),
     origin: originOf(request),
     hue: hueOf(data.tradition.name),
     nav: familyNav(family),
@@ -630,28 +636,46 @@ async function renderTraditionResponse(request, env, auth, url, { newHousehold, 
   }));
 }
 
-function renderTradition(data, { selected, selectedDay, currentYear, token, newHousehold, family }) {
-  const { tradition, role, accepted, can_upload, can_admin, days } = data;
-  if (role === "share" && !accepted) {
-    return `
-      <p class="eyebrow">A family invited you</p>
-      <p class="lead tagline">Creating family traditions. It was always about the small things.</p>
-      <p class="support">Not the big holidays. The ones your family makes your own.</p>
-      <h1>${esc(tradition.name)}</h1>
-      <p>They wanted to pass this day on to you. Accept to look — their photos stay private until you do.</p>
-      <div class="card">
-        <p><strong>When:</strong> ${esc(tradition.timing_note || "They haven't written when it happens yet.")}</p>
-        ${tradition.practice_note ? `<p class="practice">${esc(tradition.practice_note)}</p>` : ""}
-        <form id="accept-form" method="post" action="/api/shares/accept">
-          <input type="hidden" name="t" value="${esc(token)}">
-          <button class="btn" type="submit">Accept and view</button>
-          <p class="error hidden" id="accept-error"></p>
-        </form>
-      </div>
-      ${renderStartYourOwn()}`;
-  }
+function moreBlock(inner) {
+  if (!inner || !String(inner).trim()) return "";
+  return `<details class="more"><summary>More</summary>${inner}</details>`;
+}
 
+function taglineBlock() {
+  return `
+    <p class="lead tagline">${esc(TAGLINE)}</p>
+    <p class="support">${esc(TAGLINE_SUPPORT)}</p>`;
+}
+
+function previewPhotos(days, limit = 6) {
+  const out = [];
+  for (const d of days || []) {
+    for (const m of d.media || []) {
+      out.push({ ...m, year: d.year });
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
+
+function mediaItem(m) {
+  return m.mime.startsWith("video/")
+    ? `<video controls playsinline preload="metadata" src="${esc(m.url)}"></video>`
+    : `<img alt="" src="${esc(m.url)}">`;
+}
+
+function coverHero(data) {
+  const hue = hueOf(data.tradition.name);
+  const cover = data.cover || { url: "", thumb: "", hasCover: false };
+  return cover.hasCover
+    ? `<div class="cover-hero"><img alt="" src="${esc(cover.url)}"></div>`
+    : `<div class="cover-hero fallback hue-${esc(hue)}" aria-hidden="true"></div>`;
+}
+
+function yearChips(data, { selected, token }) {
+  const { tradition, role, can_upload, days } = data;
   const yearSet = new Set(days.map((d) => d.year));
+  const currentYear = new Date().getFullYear();
   if (can_upload) {
     yearSet.add(selected);
     yearSet.add(currentYear);
@@ -663,93 +687,147 @@ function renderTradition(data, { selected, selectedDay, currentYear, token, newH
     const href = role === "family" ? `${prefix}?year=${y}` : `${prefix}/${token}?year=${y}`;
     return `<a class="year" href="${esc(href)}"${current}>${y}</a>`;
   }).join("");
+  return chips ? `<div class="years" aria-label="Years">${chips}</div>` : "";
+}
 
-  const mediaHtml = (selectedDay?.media || []).map((m) =>
-    m.mime.startsWith("video/")
-      ? `<video controls playsinline preload="metadata" src="${esc(m.url)}"></video>`
-      : `<img alt="" src="${esc(m.url)}">`
-  ).join("");
-
-  const upload = can_upload ? `
-    <div class="card">
-      <h2>This year</h2>
+function renderUploadForm(data, { selected, selectedDay, token }) {
+  const { tradition, can_upload } = data;
+  if (!can_upload) {
+    return selectedDay?.note ? `<div class="card"><p class="practice">${esc(selectedDay.note)}</p></div>` : "";
+  }
+  return `
+    <div class="card" id="add-photos">
+      <h2>Add photos</h2>
       <form id="upload-form" data-token="${esc(token)}" data-tradition-id="${esc(tradition.id)}">
         <label for="year">Year</label>
         <input id="year" name="year" type="number" min="${YEAR_MIN}" max="${YEAR_MAX}" value="${esc(selected)}">
-        <label for="observed_on">The date you kept it (optional)</label>
+        <label for="observed_on">The day you kept it (optional)</label>
         <input id="observed_on" name="observed_on" type="date" value="${esc(selectedDay?.observed_on || "")}">
         <label for="day_note">A short note (optional)</label>
         <textarea id="day_note" name="note" maxlength="2000">${esc(selectedDay?.note || "")}</textarea>
         <label for="file">A photo</label>
         <input id="file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
-        <p class="hint">Photos are shrunk on your phone before they upload. Video coming soon.</p>
-        <button class="btn" type="submit">Add to this year</button>
+        <p class="hint">Photos shrink on your phone. Video coming soon.</p>
+        <button class="btn" type="submit">Add photos</button>
         <p class="hint" id="upload-status"></p>
         <p class="error hidden" id="upload-error"></p>
       </form>
-    </div>` : (selectedDay?.note ? `<div class="card"><p class="practice">${esc(selectedDay.note)}</p></div>` : "");
+    </div>`;
+}
 
-  const shareBlock = role === "share" ? `
+function renderShareCopy(data, token) {
+  if (data.role !== "share") return "";
+  return `
     <div class="card">
-      <h2>Pass it on, in your own home</h2>
-      <p>This copies the name and how they do it — not their photos. You'll get your own day to keep, and you can fill it with your family's years.</p>
+      <h2>Start this tradition too</h2>
+      <p>This copies the name and how they do it — not their photos.</p>
       <form id="copy-form" method="post" action="/api/shares/copy">
         <input type="hidden" name="t" value="${esc(token)}">
-        <button class="btn moss" type="submit">Start this tradition too</button>
+        <button class="btn" type="submit">Start this tradition too</button>
         <p class="error hidden" id="copy-error"></p>
       </form>
       <div id="copy-result" class="hidden"></div>
-    </div>
-    ${renderStartYourOwn()}` : "";
-
-  const hue = hueOf(tradition.name);
-  const cover = data.cover || { url: "", thumb: "", hasCover: false };
-  const hero = cover.hasCover
-    ? `<div class="cover-hero"><img alt="" src="${esc(cover.url)}"></div>`
-    : `<div class="cover-hero fallback hue-${esc(hue)}" aria-hidden="true"></div>`;
-
-  return `
-    ${hero}
-    <p class="eyebrow">${role === "share" ? "Shared with you" : "A family tradition"}</p>
-    <h1>${esc(tradition.name)}</h1>
-    <p class="lead">${esc(tradition.timing_note || "")}</p>
-    ${tradition.practice_note ? `<div class="card"><p class="practice">${esc(tradition.practice_note)}</p></div>` : ""}
-    ${renderFamilyLink(data, token, newHousehold)}
-    <div class="years" aria-label="Years">${chips}</div>
-    ${mediaHtml ? `<div class="media-grid">${mediaHtml}</div>` : `<p class="empty">${can_upload ? "Nothing here for this year yet." : "Nothing has been added for this year yet."}</p>`}
-    ${renderThroughTheYears(days, role, cover, tradition)}
-    ${upload}
-    ${shareBlock}
-    ${role === "family" ? renderCoverCard(data, cover) : ""}
-    ${renderClaim(data, token, family)}
-    ${role === "family" ? `<p><a class="btn secondary" href="/family/export/${esc(tradition.id)}">Download this tradition</a></p>` : ""}
-    ${can_admin ? renderAdmin(data, token) : ""}
-    <p class="foot">Private by default. Kept together, not compared. No likes, no rankings, no public list of traditions.</p>`;
+    </div>`;
 }
 
-function renderFamilyLink(data, token, newHousehold) {
-  if (data.role === "household") {
-    const url = `${data.origin}/t/${token}`;
+function renderTradition(data, { selected, selectedDay, currentYear, token, newHousehold, family }) {
+  const { tradition, role, accepted } = data;
+  if (role === "share" && !accepted) {
     return `
-      <div class="actions">
-        <button class="btn" type="button" id="copy-household" data-url="${esc(url)}" data-name="${esc(data.tradition.name)}">Text this to family</button>
-        <p class="hint">Anyone with this link can add photos and rewatch, no app store and no login. Recurday spreads when you text a link.</p>
-      </div>`;
+      <p class="eyebrow">A family invited you</p>
+      ${taglineBlock()}
+      <h1>${esc(tradition.name)}</h1>
+      <p class="lead">${esc(tradition.timing_note || "They haven't written when it happens yet.")}</p>
+      ${tradition.practice_note ? `<p class="practice">${esc(tradition.practice_note)}</p>` : ""}
+      <p>Have a look to see their photos.</p>
+      <form id="accept-form" method="post" action="/api/shares/accept">
+        <input type="hidden" name="t" value="${esc(token)}">
+        <button class="btn btn-lg" type="submit">Have a look</button>
+        <p class="error hidden" id="accept-error"></p>
+      </form>
+      ${renderStartYourOwn()}`;
   }
-  if (data.role !== "admin" && data.role !== "family") return "";
+
+  if (role === "household" || role === "share") {
+    return renderSharedLink(data, { selected, selectedDay, token, family });
+  }
+
+  return renderAppTradition(data, { selected, selectedDay, token, newHousehold, family });
+}
+
+function renderSharedLink(data, { selected, selectedDay, token, family }) {
+  const { tradition, role, days, can_upload } = data;
+  const photos = previewPhotos(days, 6);
+  const gallery = photos.length
+    ? `<div class="media-grid shared-photos">${photos.map((m) =>
+        `<figure class="shared-shot">${mediaItem(m)}<figcaption>${esc(String(m.year))}</figcaption></figure>`
+      ).join("")}</div>`
+    : `<p class="empty">Photos will show up here.</p>`;
+  const extra = moreBlock([
+    can_upload ? renderUploadForm(data, { selected, selectedDay, token }) : "",
+    renderThroughTheYears(days, role, data.cover, tradition),
+    renderShareCopy(data, token),
+    renderClaim(data, token, family),
+  ].join(""));
+  return `
+    ${coverHero(data)}
+    <h1>${esc(tradition.name)}</h1>
+    <p class="lead">${esc(tradition.timing_note || "")}</p>
+    ${tradition.practice_note ? `<p class="practice">${esc(tradition.practice_note)}</p>` : ""}
+    ${gallery}
+    ${taglineBlock()}
+    ${extra}
+    ${renderStartYourOwn()}`;
+}
+
+function renderAppTradition(data, { selected, selectedDay, token, newHousehold, family }) {
+  const { tradition, role, can_upload, can_admin, days } = data;
+  const familyUrl = data.family_link_url || (newHousehold ? `${data.origin}/t/${newHousehold}` : "");
+  const textBtn = familyUrl
+    ? `<button class="btn btn-lg" type="button" id="copy-household" data-url="${esc(familyUrl)}" data-name="${esc(tradition.name)}">Text this to family</button>`
+    : "";
+  const addBtn = can_upload ? `<a class="btn secondary" href="#add-photos">Add photos</a>` : "";
+  const yearsBtn = renderThroughTheYears(days, role, data.cover, tradition);
+  const selectedMedia = (selectedDay?.media || []).map(mediaItem).join("");
+  const empty = selectedMedia
+    ? `<div class="media-grid">${selectedMedia}</div>`
+    : `<p class="empty">${can_upload ? "Add a photo to get started." : "Photos will show up here."}</p>`;
   const fresh = newHousehold
-    ? `<div class="notice">
-        <p class="ok">Save this link, then text it. That's how Recurday moves from home to home — not an app store.</p>
-        <div class="links">
-          <p><strong>Family link</strong> — text this one:<br><a href="/t/${esc(newHousehold)}">${esc(data.origin)}/t/${esc(newHousehold)}</a></p>
-        </div>
-        <button class="btn" type="button" id="copy-household" data-url="${esc(data.origin)}/t/${esc(newHousehold)}" data-name="${esc(data.tradition.name)}">Text this to family</button>
-      </div>`
-    : `<p class="hint">To text your family, use the family link you saved when you created this tradition. If you lost it, make a fresh one — the old family link will stop working.</p>`;
+    ? `<div class="notice"><p class="ok">Save this link, then text it.</p>
+        <div class="links"><p><a href="/t/${esc(newHousehold)}">${esc(data.origin)}/t/${esc(newHousehold)}</a></p></div></div>`
+    : "";
+  const more = moreBlock([
+    fresh ? "" : "",
+    renderLinkTools(data, token, newHousehold),
+    role === "family" ? renderCoverCard(data, data.cover) : "",
+    renderClaim(data, token, family),
+    role === "family" ? `<p><a class="btn secondary" href="/family/export/${esc(tradition.id)}">Save a copy</a></p>` : "",
+    can_admin ? renderAdmin(data, token) : "",
+  ].join(""));
+  return `
+    ${coverHero(data)}
+    <h1>${esc(tradition.name)}</h1>
+    <p class="lead">${esc(tradition.timing_note || "")}</p>
+    ${tradition.practice_note ? `<p class="practice">${esc(tradition.practice_note)}</p>` : ""}
+    ${fresh}
+    <div class="actions-primary">
+      ${textBtn}
+      ${addBtn}
+      ${yearsBtn}
+    </div>
+    ${yearChips(data, { selected, token })}
+    ${empty}
+    ${can_upload ? renderUploadForm(data, { selected, selectedDay, token }) : ""}
+    ${more}`;
+}
+
+function renderLinkTools(data, token, newHousehold) {
+  if (data.role !== "admin" && data.role !== "family") return "";
   return `
     <div class="card">
-      ${fresh}
-      <button class="btn secondary" type="button" id="rotate-household" data-token="${esc(token)}" data-tradition-id="${esc(data.tradition.id)}">Make a fresh family link</button>
+      <h2>Family link</h2>
+      <p class="hint">If the old link is lost, make a new one. The old link will stop working.</p>
+      <button class="btn secondary" type="button" id="rotate-household" data-token="${esc(token)}" data-tradition-id="${esc(data.tradition.id)}">Make a new family link</button>
       <div id="rotate-result"></div>
     </div>`;
 }
@@ -763,11 +841,11 @@ function renderAdmin(data, token) {
   return `
     <div class="card" id="keeper">
       <h2>Pass it on</h2>
-      <p>Share this tradition idea with another family, as a gift — not a contest. They'll see it after they accept, and they can start it too for themselves. You can stop the share at any time.</p>
+      <p>Share the idea with another family — not the photos. You can stop it anytime.</p>
       <form id="invite-form" data-token="${esc(token)}" data-tradition-id="${esc(data.tradition.id)}">
-        <label for="label">Who is this for? (just so you remember)</label>
+        <label for="label">Who is this for?</label>
         <input id="label" name="label" type="text" maxlength="80" required placeholder="The Millers">
-        <button class="btn moss" type="submit">Create a pass-it-on link</button>
+        <button class="btn" type="submit">Make a pass-it-on link</button>
         <p class="error hidden" id="invite-error"></p>
       </form>
       <div id="invite-result"></div>
@@ -790,9 +868,7 @@ function renderThroughTheYears(days, role, cover, tradition) {
     years,
   };
   return `
-    <div class="actions">
-      <button class="btn secondary" type="button" id="play-years">Through the years</button>
-    </div>
+    <button class="btn secondary" type="button" id="play-years">Watch the years</button>
     <script type="application/json" id="years-data">${JSON.stringify(payload).replace(/</g, "\\u003c")}</script>`;
 }
 
@@ -822,12 +898,12 @@ function renderCoverCard(data, cover) {
   return `
     <div class="card" id="cover-card">
       <h2>Cover picture</h2>
-      <p>This picture stands for the tradition — on the calendar, at the top of this page, and at the start of Through the years.</p>
+      <p>This picture stands for the tradition on the calendar and at the top of this page.</p>
       ${preview}
       <form id="cover-form" data-tradition-id="${esc(tradition.id)}">
         <label for="cover-file">Upload a photo</label>
         <input id="cover-file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
-        <p class="hint">The photo is shrunk on your phone before it uploads. Link previews stay generic; this picture stays private.</p>
+        <p class="hint">The photo shrinks on your phone. Link previews stay generic.</p>
         <button class="btn" type="submit">Use this as the cover</button>
         <p class="hint" id="cover-status"></p>
         <p class="error hidden" id="cover-error"></p>
@@ -838,12 +914,7 @@ function renderCoverCard(data, cover) {
 }
 
 function renderStartYourOwn() {
-  return `
-    <div class="card" id="start-your-own">
-      <h2>Start your own family's traditions</h2>
-      <p>If this day meant something to you, you can keep days like it at home. Text a link. No app store.</p>
-      <a class="btn" href="/">Start your family's traditions</a>
-    </div>`;
+  return `<p class="start-own-quiet"><a href="/">Start your own</a></p>`;
 }
 
 function renderClaim(data, token, family) {

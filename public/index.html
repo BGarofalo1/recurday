@@ -32,15 +32,14 @@
     <p class="support">Not the big holidays. The ones your family makes your own.</p>
 
     <div class="card">
-      <h2>Start your family's traditions</h2>
-      <p>One family name and one passcode, shared with everyone at home. You'll get a calendar of the days you keep together.</p>
+      <h2>Name your family</h2>
       <form id="family-create-form">
         <label for="create-family-name">Family name</label>
         <input id="create-family-name" name="name" type="text" required minlength="2" maxlength="40" autocomplete="username" placeholder="The Garofalos">
-        <label for="create-passcode">Passcode (at least 8 characters)</label>
+        <label for="create-passcode">Passcode</label>
         <input id="create-passcode" name="passcode" type="password" required minlength="8" autocomplete="new-password">
-        <p class="hint">Anyone at home logs in with the same name and passcode. No email, and no individual accounts.</p>
-        <button class="btn" type="submit">Create our family login</button>
+        <p class="hint">At least 8 characters. Everyone at home uses the same name and passcode.</p>
+        <button class="btn btn-lg" type="submit">Get started</button>
         <p class="error hidden" id="family-create-error"></p>
       </form>
     </div>
@@ -57,22 +56,24 @@
       </form>
     </div>
 
-    <div class="card">
-      <h2>Start a tradition</h2>
-      <p class="hint">You can also begin with a single tradition and a link, then set up your family login later.</p>
-      <form id="create-form" method="post" action="/api/traditions">
-        <label for="name">What do you call it?</label>
-        <input id="name" name="name" type="text" required maxlength="80" placeholder="Pancake Saturday">
-        <label for="timing">When does it usually happen?</label>
-        <input id="timing" name="timing_note" type="text" maxlength="200" placeholder="First Saturday in June">
-        <label for="practice">How do you do it?</label>
-        <textarea id="practice" name="practice_note" maxlength="2000" placeholder="We make pancakes, go to the creek, and eat outside."></textarea>
-        <p class="hint">You'll get a link you can text to your family. No account is required for that. You can also add Recurday to your home screen, from the browser — not an app store.</p>
-        <button class="btn secondary" type="submit">Create this tradition</button>
-        <p class="error hidden" id="create-error"></p>
-      </form>
-    </div>
-    <p class="foot">Traditions are private unless you choose to pass one on to another family. There are no likes, rankings, or public lists.</p>
+    <details class="more">
+      <summary>More</summary>
+      <div class="card">
+        <h2>Start a tradition</h2>
+        <p class="hint">Or begin with one tradition and a link, then name your family later.</p>
+        <form id="create-form" method="post" action="/api/traditions">
+          <label for="name">What do you call it?</label>
+          <input id="name" name="name" type="text" required maxlength="80" placeholder="Grinch Movie Night">
+          <label for="timing">When does it usually happen?</label>
+          <input id="timing" name="timing_note" type="text" maxlength="200" placeholder="Second Saturday in December">
+          <label for="practice">How do you do it?</label>
+          <textarea id="practice" name="practice_note" maxlength="2000" placeholder="Everyone brings something green. No green, no screen."></textarea>
+          <p class="hint">You'll get a link you can text to your family.</p>
+          <button class="btn secondary" type="submit">Add this tradition</button>
+          <p class="error hidden" id="create-error"></p>
+        </form>
+      </div>
+    </details>
   </div>
   <script src="/app.js" defer></script>
 </body>

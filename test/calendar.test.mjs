@@ -19,6 +19,11 @@ check("parses first Saturday in June", firstSat && firstSat.type === "nth_weekda
 check("first Saturday in June 2026 is June 6", occurDate(firstSat, 2026) === "2026-06-06", occurDate(firstSat, 2026));
 check("first Saturday in June 2027 is June 5", occurDate(firstSat, 2027) === "2027-06-05", occurDate(firstSat, 2027));
 
+const secondSatDec = parseTiming("Second Saturday in December");
+check("parses second Saturday in December", secondSatDec && secondSatDec.type === "nth_weekday" && secondSatDec.nth === 2 && secondSatDec.weekday === 6 && secondSatDec.month === 12, JSON.stringify(secondSatDec));
+check("second Saturday in December 2026 is December 12", occurDate(secondSatDec, 2026) === "2026-12-12", occurDate(secondSatDec, 2026));
+check("second Saturday in December 2027 is December 11", occurDate(secondSatDec, 2027) === "2027-12-11", occurDate(secondSatDec, 2027));
+
 const lastFri = parseTiming("last Friday in May");
 check("parses last Friday in May", lastFri && lastFri.nth === -1 && lastFri.weekday === 5 && lastFri.month === 5);
 check("last Friday in May 2026 is May 29", occurDate(lastFri, 2026) === "2026-05-29", occurDate(lastFri, 2026));
@@ -39,24 +44,24 @@ const grid = monthGrid(2026, 6);
 check("June 2026 grid starts on Monday (Mon=1, so 1 empty? June 1 2026 is Monday, Sunday start => 1 leading empty)", grid[0].day === null && grid[1].day === 1 && grid.filter((c) => c.day).length === 30);
 
 const traditions = [
-  { name: "Pancake Saturday", timing_note: "First Saturday in June" },
+  { name: "Grinch Movie Night", timing_note: "Second Saturday in December" },
   { name: "Lantern Night", timing_note: "December 21" },
 ];
 const soon = upcomingFor(traditions, "2026-01-15", 8);
-check("upcoming finds pancake Saturday then lantern night", soon.length === 2 && soon[0].date === "2026-06-06" && soon[1].date === "2026-12-21", JSON.stringify(soon.map((s) => s.date)));
-const later = upcomingFor(traditions, "2026-06-07", 8);
-check("upcoming after June 6 skips to next year for pancakes after lantern", later[0].date === "2026-12-21" && later[1].date === "2027-06-05", JSON.stringify(later.map((s) => s.date)));
+check("upcoming finds Grinch Movie Night then lantern night", soon.length === 2 && soon[0].date === "2026-12-12" && soon[1].date === "2026-12-21", JSON.stringify(soon.map((s) => s.date)));
+const later = upcomingFor(traditions, "2026-12-13", 8);
+check("upcoming after December 12 skips to lantern then next year's Grinch Movie Night", later[0].date === "2026-12-21" && later[1].date === "2027-12-11", JSON.stringify(later.map((s) => s.date)));
 
 const ics = buildIcs({
   familyName: "The Garofalos",
   origin: "https://example.com",
   events: [
-    { id: "abc", name: "Pancake Saturday", rule: firstSat, dtstart: "2026-06-06", timing: "First Saturday in June", practice: "Pancakes." },
+    { id: "abc", name: "Grinch Movie Night", rule: secondSatDec, dtstart: "2026-12-12", timing: "Second Saturday in December", practice: "Everyone brings something green. No green, no screen." },
   ],
 });
-check("ics is a calendar with a yearly rule", ics.includes("BEGIN:VCALENDAR") && ics.includes("RRULE:FREQ=YEARLY;BYMONTH=6;BYDAY=1SA") && ics.includes("SUMMARY:Pancake Saturday"));
-check("ics uses all-day dates", ics.includes("DTSTART;VALUE=DATE:20260606"));
-check("describeRule is readable", describeRule(firstSat) === "First Saturday in June");
+check("ics is a calendar with a yearly rule", ics.includes("BEGIN:VCALENDAR") && ics.includes("RRULE:FREQ=YEARLY;BYMONTH=12;BYDAY=2SA") && ics.includes("SUMMARY:Grinch Movie Night"));
+check("ics uses all-day dates", ics.includes("DTSTART;VALUE=DATE:20261212"));
+check("describeRule is readable", describeRule(secondSatDec) === "Second Saturday in December");
 
 const name = validFamilyName("  The O'Briens  ");
 check("family name trims and allows apostrophes", name === "The O'Briens" && nameKey(name) === "the o'briens");
@@ -91,7 +96,7 @@ const bytes = zip.end();
 check("zip starts with PK header", bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04);
 check("zip contains both file names", new TextDecoder().decode(bytes).includes("hello.txt") && new TextDecoder().decode(bytes).includes("folder/photo.bin"));
 check("crc32 of hello is well-known", crc32(new TextEncoder().encode("hello")) === 0x3610a686);
-check("slug is filesystem-safe", slugPart("Pancake Saturday!") === "pancake-saturday");
+check("slug is filesystem-safe", slugPart("Grinch Movie Night!") === "grinch-movie-night");
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

@@ -2,7 +2,7 @@
 
 Creating family traditions. It was always about the small things.
 
-A free web app for the days a family makes their own. Text a link, add photos of the day you keep, and come back next year to rewatch as the kids grow.
+A free web app for the days a family makes their own — not the big holidays. The texted link is the heart of it. Add photos of the day you keep, and come back next year to rewatch as the kids grow.
 
 Live: [https://recurday.bgarofalo1.workers.dev](https://recurday.bgarofalo1.workers.dev)
 
@@ -18,13 +18,13 @@ That idea stays in this file. The app itself just talks about giving, keeping, a
 
 ## What it does
 
-- Keep a shared family calendar as the home of your traditions. Each one can fall on a fixed date or on something like the first Saturday in June, and it comes back every year.
+- Keep a shared family calendar as the home of your traditions. Each one can fall on a fixed date or on something like the second Saturday in December (Grinch Movie Night), and it comes back every year. A short note might read: “Everyone brings something green. No green, no screen.”
 - Set up one family login (a family name and one shared passcode) so everyone in the house can open the calendar. No email, and no individual accounts. You can claim an older private link into that login.
-- Text an unguessable family link — no account needed. Tap **Text this to family**. Recurday uses the phone's share sheet when it can, or opens a text message if it cannot.
+- Tap **Text this to family**. The message is short and human, like: “Grinch Movie Night is coming up. It was always about the small things. [link]”. Recurday uses the phone's share sheet when it can, or opens a text message if it cannot. The person who gets the link sees the tradition right away — the cover, the name, the date, a few photos, and the tagline — with no sign-in.
 - Add photos for that year (shrunk on the phone, about 2 MB each). Video coming soon.
-- Give a tradition a cover picture — upload one, or pick a photo already kept with that day. It appears at the top of the tradition page, as a small round thumbnail on the calendar, and as the opening card of Through the years. If there's no cover, the tradition's rainbow hue stands in. Covers stay private like other photos; link previews stay the generic image.
-- Rewatch **Through the years**: a quiet slideshow, oldest year first, with the year named and then that year's photos.
-- Optionally **Pass it on** — a revocable invite to another family. They can look, and they can tap **Start this tradition too**, which copies the practice, not the photos. When they open the link they also see a gentle invitation to start their own family's traditions, and a hint to add Recurday to the home screen.
+- Give a tradition a cover picture — upload one, or pick a photo already kept with that day. It appears at the top of the tradition page, as a small round thumbnail on the calendar, and as the opening card of Watch the years. If there's no cover, the tradition's rainbow hue stands in. Covers stay private like other photos; link previews stay the generic image.
+- Rewatch **Watch the years**: a quiet slideshow, oldest year first, with the year named and then that year's photos.
+- Optionally **Pass it on** — a revocable invite to another family. They can look, and they can tap **Start this tradition too**, which copies the practice, not the photos. When they open the link they also see a quiet **Start your own** at the bottom.
 - Export a private zip of your traditions, photos, and a simple index, to keep and pass down. If the whole family archive is too large, you can export one tradition at a time.
 - Add Recurday to your phone's home screen. There is no app store.
 

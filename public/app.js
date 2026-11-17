@@ -116,19 +116,15 @@ function smsHref(text) {
 }
 
 function shareMessage(kind, name, url) {
-  if (kind === "pass") {
-    return `We wanted to pass one of our family traditions on to you, on Recurday. Open this link (no app store):
-${url}`;
-  }
-  return `We're keeping ${name || "a tradition"} on Recurday. Open this link (no app store):
-${url}`;
+  const title = name || "This tradition";
+  return `${title} is coming up. It was always about the small things. ${url}`;
 }
 
 async function textToFamily({ url, name, kind = "family", button }) {
   const text = shareMessage(kind, name, url);
   if (navigator.share) {
     try {
-      await navigator.share({ title: "Recurday", text, url });
+      await navigator.share({ title: "Recurday", text });
       if (button) button.textContent = "Sent — or ready to send";
       return "shared";
     } catch (err) {
@@ -378,9 +374,9 @@ if (rotateBtn) {
         body: JSON.stringify(authPayload(rotateBtn)),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Could not make a fresh family link.");
+      if (!res.ok) throw new Error(body.error || "Could not make a new family link.");
       if (box) {
-        box.innerHTML = `<div class="notice"><p class="ok">Here is a fresh family link. The previous one no longer works.</p>
+        box.innerHTML = `<div class="notice"><p class="ok">Here is a new family link. The old one no longer works.</p>
           <div class="links"><p><a href="${body.household_path}">${body.household_url}</a></p></div>
           <button class="btn" type="button" id="copy-household" data-url="${body.household_url}" data-name="${document.querySelector("h1")?.textContent || "our tradition"}">Text this to family</button></div>`;
         const btn = document.getElementById("copy-household");
@@ -643,11 +639,11 @@ if (rotateIcs) {
     try {
       const res = await postJson("/api/family/calendar-link", {});
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Could not make that subscribe link.");
+      if (!res.ok) throw new Error(body.error || "Could not make that calendar link.");
       if (box) {
-        box.innerHTML = `<div class="notice"><p class="ok">Here's a fresh private subscribe link. The previous one no longer works.</p>
+        box.innerHTML = `<div class="notice"><p class="ok">Here is a new calendar link. The old one no longer works.</p>
           <div class="links"><p><a href="${body.ics_path}">${body.ics_url}</a></p></div>
-          <button class="btn" type="button" id="copy-ics" data-url="${body.ics_url}">Copy subscribe link</button></div>`;
+          <button class="btn" type="button" id="copy-ics" data-url="${body.ics_url}">Copy the calendar link</button></div>`;
         const btn = document.getElementById("copy-ics");
         btn?.addEventListener("click", async () => {
           const ok = await copyText(btn.dataset.url || "");
@@ -809,7 +805,7 @@ function setupYearsPlayer() {
     overlay = document.createElement("div");
     overlay.className = "years-player";
     overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-label", "Through the years");
+    overlay.setAttribute("aria-label", "Watch the years");
     overlay.innerHTML = `<button class="yp-close" type="button" data-yp="close">Close</button>
       <div class="yp-stage"></div>
       <div class="yp-controls">

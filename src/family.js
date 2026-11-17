@@ -20,6 +20,7 @@ import {
   randomToken,
   hexToBytes,
 } from "./auth.js";
+import { saveHouseholdToken } from "./links.js";
 import {
   hueOf,
   ruleFromRow,
@@ -378,6 +379,7 @@ async function createFamilyTradition(request, env) {
     await sha256hex(household), await sha256hex(admin),
     family.id, bound.recur_type, bound.recur_month, bound.recur_day, bound.recur_nth, bound.recur_weekday
   ).run();
+  await saveHouseholdToken(env, id, household);
   const origin = originOf(request);
   return json({
     id,
@@ -574,21 +576,23 @@ export async function calendarPage(request, env, url) {
   const unscheduledHtml = unscheduled.length
     ? `<div class="card"><h2>Needs a date</h2><ul class="upcoming">${unscheduled.map((t) =>
       `<li><a class="cal-pill hue-${esc(hueOf(t.name))}" href="/f/${esc(t.id)}">${coverUrls(t).hasCover ? `<img class="cal-thumb" alt="" src="${esc(coverUrls(t).thumb)}">` : `<span class="cal-thumb fallback hue-${esc(hueOf(t.name))}" aria-hidden="true"></span>`}<span class="cal-pill-name">${esc(t.name)}</span></a>${t.timing_note ? ` <span class="muted">${esc(t.timing_note)}</span>` : ""}</li>`
-    ).join("")}</ul><p class="hint">These traditions don't have a date we can place on the calendar yet. Open one and edit when it happens, or add a new one by tapping a day.</p></div>`
+    ).join("")}</ul><p class="hint">These need a date. Open one, or tap a day to add one.</p></div>`
     : "";
 
   const upcomingHtml = upcoming.length
     ? `<ul class="upcoming">${upcoming.map((item) =>
       `<li><a class="cal-pill hue-${esc(item.hue)}" href="/f/${esc(item.id)}">${item.cover && item.cover.hasCover ? `<img class="cal-thumb" alt="" src="${esc(item.cover.thumb)}">` : `<span class="cal-thumb fallback hue-${esc(item.hue)}" aria-hidden="true"></span>`}<span class="cal-pill-name">${esc(item.name)}</span></a> <span class="muted">${esc(item.date)}${item.when ? ` · ${esc(item.when)}` : ""}</span></li>`
     ).join("")}</ul>`
-    : `<p class="empty">Nothing upcoming with a date yet. Tap a day to add a tradition.</p>`;
+    : `<p class="empty">Tap a day to add one.</p>`;
 
   const addCard = add ? renderAddCard(add) : "";
 
   const body = `
     <p class="eyebrow">${esc(family.name)}</p>
     <h1>Our traditions</h1>
-    <p class="lead">A month at a time, given back to each other year after year.</p>
+    <div class="actions-primary">
+      <a class="btn btn-lg" href="/calendar?year=${safeYear}&month=${safeMonth}&add=${today}">+ New tradition</a>
+    </div>
     ${addCard}
     <div class="card cal-card">
       <div class="cal-nav">
@@ -606,35 +610,37 @@ export async function calendarPage(request, env, url) {
       ${upcomingHtml}
     </div>
     ${unscheduledHtml}
-    <div class="card">
-      <h2>Your family login</h2>
-      <p>Everyone at home uses the name <strong>${esc(family.name)}</strong> and the same passcode. One login, so the family can keep this calendar together.</p>
-      <form id="passcode-form">
-        <label for="current_passcode">Current passcode</label>
-        <input id="current_passcode" name="current_passcode" type="password" required minlength="8" autocomplete="current-password">
-        <label for="new_passcode">New passcode</label>
-        <input id="new_passcode" name="new_passcode" type="password" required minlength="8" autocomplete="new-password">
-        <p class="hint">Changing the passcode signs out other devices.</p>
-        <button class="btn secondary" type="submit">Change passcode</button>
-        <p class="error hidden" id="passcode-error"></p>
-        <p class="ok hidden" id="passcode-ok">Passcode updated.</p>
-      </form>
-    </div>
-    <div class="card">
-      <h2>Phone calendar</h2>
-      <p>Add these days to the family's phone calendar with this private link. Anyone who has it can see tradition names and dates, not your photos.</p>
-      ${icsUrl ? `<div class="links"><p><a href="${esc(icsUrl)}">${esc(icsUrl)}</a></p></div>
-        <button class="btn" type="button" id="copy-ics" data-url="${esc(icsUrl)}">Copy subscribe link</button>` : `<p class="hint">Make a subscribe link to add these days to the family's phone calendar.</p>`}
-      <button class="btn secondary" type="button" id="rotate-ics">${icsUrl ? "Make a fresh subscribe link" : "Make a subscribe link"}</button>
-      <div id="ics-result"></div>
-    </div>
-    <div class="card">
-      <h2>A copy to keep</h2>
-      <p>Download a zip of your traditions, photos, and a simple index — a record to keep and pass down.</p>
-      <a class="btn" href="/family/export">Download a copy</a>
-      <p class="hint">If the whole family album is too large, we'll offer a download for each tradition instead.</p>
-    </div>
-    <p class="foot">Private by default. No likes, no rankings, no public list of traditions.</p>`;
+    <details class="more">
+      <summary>More</summary>
+      <div class="card">
+        <h2>Family passcode</h2>
+        <p>Everyone at home uses the name <strong>${esc(family.name)}</strong> and the same passcode.</p>
+        <form id="passcode-form">
+          <label for="current_passcode">Current passcode</label>
+          <input id="current_passcode" name="current_passcode" type="password" required minlength="8" autocomplete="current-password">
+          <label for="new_passcode">New passcode</label>
+          <input id="new_passcode" name="new_passcode" type="password" required minlength="8" autocomplete="new-password">
+          <p class="hint">This signs out other devices.</p>
+          <button class="btn secondary" type="submit">Change passcode</button>
+          <p class="error hidden" id="passcode-error"></p>
+          <p class="ok hidden" id="passcode-ok">Passcode updated.</p>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Add to your phone calendar</h2>
+        <p>This private link adds the days to a phone calendar. It shows names and dates, not photos.</p>
+        ${icsUrl ? `<div class="links"><p><a href="${esc(icsUrl)}">${esc(icsUrl)}</a></p></div>
+          <button class="btn" type="button" id="copy-ics" data-url="${esc(icsUrl)}">Copy the calendar link</button>` : `<p class="hint">Make a private link to add these days to a phone calendar.</p>`}
+        <button class="btn secondary" type="button" id="rotate-ics">${icsUrl ? "Make a new calendar link" : "Make a calendar link"}</button>
+        <div id="ics-result"></div>
+      </div>
+      <div class="card">
+        <h2>Save a copy</h2>
+        <p>Download your traditions and photos to keep.</p>
+        <a class="btn" href="/family/export">Save a copy</a>
+        <p class="hint">If the whole album is too large, you can save one tradition at a time.</p>
+      </div>
+    </details>`;
 
   return html(pageShell({
     title: `${family.name} — Recurday`,
@@ -655,18 +661,18 @@ function renderAddCard(iso) {
       <form id="calendar-create-form">
         <input type="hidden" name="date" value="${esc(iso)}">
         <label for="cal-name">What do you call it?</label>
-        <input id="cal-name" name="name" type="text" required maxlength="80" placeholder="Pancake Saturday">
+        <input id="cal-name" name="name" type="text" required maxlength="80" placeholder="Grinch Movie Night">
         <label for="cal-practice">How do you do it?</label>
-        <textarea id="cal-practice" name="practice_note" maxlength="2000" placeholder="We make pancakes, go to the creek, and eat outside."></textarea>
+        <textarea id="cal-practice" name="practice_note" maxlength="2000" placeholder="Everyone brings something green. No green, no screen."></textarea>
         <label for="cal-repeat">Repeat each year</label>
         <select id="cal-repeat" name="recur_type">
           <option value="fixed" selected>On this date every year</option>
-          <option value="nth_weekday">On this weekday every year (for example, the first Saturday)</option>
+          <option value="nth_weekday">On this weekday every year (for example, the second Saturday)</option>
         </select>
         <label for="cal-cover">A cover picture (optional)</label>
         <input id="cal-cover" name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
-        <p class="hint">This picture stands for the tradition on the calendar and at the top of its page. It is shrunk on your phone before it uploads.</p>
-        <button class="btn" type="submit">Create this tradition</button>
+        <p class="hint">This picture stands for the tradition. It shrinks on your phone first.</p>
+        <button class="btn btn-lg" type="submit">Add this tradition</button>
         <p class="error hidden" id="calendar-create-error"></p>
       </form>
     </div>`;
