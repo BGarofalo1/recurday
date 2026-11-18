@@ -10,7 +10,25 @@ workers_dev = true
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = true
+# Static files (CSS, JS, icons, and the prebuilt Ideas/About/Privacy/Terms
+# pages) are served straight from Cloudflare without running the Worker.
+# Static asset requests are free and unlimited; only the paths below count
+# toward the Workers Free plan's 100,000 requests/day.
+# https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/
+run_worker_first = [
+  "/",
+  "/index.html",
+  "/api/*",
+  "/media/*",
+  "/t/*",
+  "/a/*",
+  "/s/*",
+  "/f/*",
+  "/calendar",
+  "/cal/*",
+  "/family/*",
+  "/offline.html",
+]
 
 [vars]
 # "kv" today. Set to "r2" after swapping the binding below for an R2 bucket.

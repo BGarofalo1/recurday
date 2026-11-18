@@ -156,6 +156,7 @@ async function main() {
     check("ideas page loads", ideasPage.ok && ideasHtml.includes("<h1>Ideas</h1>") && ideasHtml.includes("Make it ours") && ideasHtml.includes("Grinch Movie Night") && ideasHtml.includes("Everyone brings something green. No green, no screen.") && ideasHtml.includes("Second Saturday in December"));
     check("ideas page is noindex and has no ranks or names of people", (ideasPage.headers.get("x-robots-tag") || "").includes("noindex") && !/leaderboard|like button|popularity/i.test(ideasHtml) && !ideasHtml.includes('id="like"') && !ideasHtml.includes("Girard"));
     check("ideas page has a few more traditions to borrow", ideasHtml.includes("First-snow pancakes") && ideasHtml.includes("Backwards dinner") && ideasHtml.includes("Leaf-pile day") && ideasHtml.includes("/calendar?idea=grinch-movie-night"));
+    check("ideas page is a static file with the same security headers", (ideasPage.headers.get("content-security-policy") || "").includes("frame-ancestors 'none'") && ideasPage.headers.get("x-frame-options") === "DENY" && (ideasPage.headers.get("strict-transport-security") || "").includes("max-age="));
     const ideasApi = await fetch(`${base}/api/ideas`);
     const ideasBody = await ideasApi.json();
     check("ideas api is a static list", ideasApi.ok && Array.isArray(ideasBody.ideas) && ideasBody.ideas.length >= 9 && ideasBody.ideas.every((idea) => idea.slug && idea.name && idea.practice && idea.timing));
@@ -293,7 +294,7 @@ async function main() {
       `status=${ico.status} bytes=${icoBuf.length}`
     );
 
-    check("service worker caches the app shell", /recurday-shell/.test(swText) && shellList.includes("/offline.html") && shellList.includes("/styles.css") && shellList.includes("/app.js"));
+    check("service worker caches the app shell", /recurday-shell/.test(swText) && shellList.includes("/offline") && !shellList.includes("/offline.html") && shellList.includes("/styles.css") && shellList.includes("/app.js"));
     check(
       "service worker never caches private family data",
       /const PRIVATE\s*=/.test(swText) &&
@@ -403,6 +404,28 @@ async function main() {
     const yearPage = await fetch(`${base}${trad.household_path}?year=2024`);
     const yearHtml = await yearPage.text();
     check("rewatch page shows 2024 and the photo", yearPage.ok && yearHtml.includes(">2024<") && yearHtml.includes(`/media/${up.media_id}`));
+
+    // Scale: shared-link pages and photos come from the edge cache, and edits show up at once.
+    check("photo may be kept by the browser (immutable, private)", /private/.test(mediaOk.headers.get("cache-control") || "") && /immutable/.test(mediaOk.headers.get("cache-control") || ""));
+    const mediaAgain = await fetch(mediaUrl);
+    check("second photo view is served from the edge cache", mediaAgain.ok && mediaAgain.headers.get("x-recurday-edge") === "hit" && (await mediaAgain.arrayBuffer()).byteLength === JPG.length, mediaAgain.headers.get("x-recurday-edge"));
+    check("edge-cached photo still needs the link", (await fetch(`${base}/media/${up.media_id}`)).status === 404);
+    const linkA = await fetch(`${base}${trad.household_path}`);
+    const linkAHtml = await linkA.text();
+    const linkB = await fetch(`${base}${trad.household_path}`);
+    const linkBHtml = await linkB.text();
+    check("shared link page is cached at the edge for visitors", linkB.ok && linkB.headers.get("x-recurday-edge") === "hit" && linkBHtml === linkAHtml, `${linkA.headers.get("x-recurday-edge")} ${linkB.headers.get("x-recurday-edge")}`);
+    check("cached shared link page is not kept by browsers", /private/.test(linkB.headers.get("cache-control") || "") && /no-cache/.test(linkB.headers.get("cache-control") || "") && (linkB.headers.get("x-frame-options") || "") === "DENY");
+    const noteForm = new FormData();
+    noteForm.set("t", householdToken);
+    noteForm.set("year", "2024");
+    noteForm.set("note", "Edited note shows up right away.");
+    const noteRes = await fetch(`${base}/api/days`, { method: "POST", body: noteForm });
+    const linkAfterEdit = await fetch(`${base}${trad.household_path}?year=2024`);
+    const linkAfterEditHtml = await linkAfterEdit.text();
+    check("an edit shows on the shared link at once (no stale cache)", noteRes.ok && linkAfterEdit.headers.get("x-recurday-edge") === "miss" && linkAfterEditHtml.includes("Edited note shows up right away."));
+    const keeperAgain = await fetch(`${base}${trad.admin_path}`);
+    check("keeper page is never edge-cached", keeperAgain.ok && !keeperAgain.headers.get("x-recurday-edge"));
 
     const shareRes = await fetch(`${base}/api/shares`, {
       method: "POST",

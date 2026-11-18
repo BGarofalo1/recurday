@@ -4,9 +4,11 @@
   "description": "Recurday Day-1: family traditions, kept and rewatched year by year.",
   "type": "module",
   "scripts": {
+    "build": "node scripts/build-static.mjs",
     "migrate:local": "wrangler d1 migrations apply recurday --local",
-    "dev": "wrangler d1 migrations apply recurday --local && wrangler dev",
-    "test": "node test/calendar.test.mjs && node test/smoke.mjs"
+    "dev": "node scripts/build-static.mjs && wrangler d1 migrations apply recurday --local && wrangler dev",
+    "test": "node scripts/build-static.mjs --check && node test/calendar.test.mjs && node test/scale.test.mjs && node test/smoke.mjs",
+    "deploy": "node scripts/build-static.mjs && wrangler d1 migrations apply recurday --remote && wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "4.37.1"

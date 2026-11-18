@@ -1,0 +1,35 @@
+# Headers for files Cloudflare serves straight from static assets (no Worker run).
+# Pages the Worker renders get the same headers from src/http.js (SECURITY).
+# https://developers.cloudflare.com/workers/static-assets/headers/
+
+/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Strict-Transport-Security: max-age=15552000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'self'; frame-ancestors 'none'
+
+/sw.js
+  ! Cache-Control
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/icons/*
+  ! Cache-Control
+  Cache-Control: public, max-age=86400
+
+/og.png
+  ! Cache-Control
+  Cache-Control: public, max-age=86400
+
+/apple-touch-icon.png
+  ! Cache-Control
+  Cache-Control: public, max-age=86400
+
+/favicon.*
+  ! Cache-Control
+  Cache-Control: public, max-age=86400

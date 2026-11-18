@@ -1,12 +1,13 @@
 import { mediaStore } from "./storage.js";
 import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf, TAGLINE, TAGLINE_SUPPORT } from "./http.js";
 import { hueOf, parseTiming, bindRule, describeRule } from "./calendar.js";
-import { sha256hex, randomToken, clientIp } from "./auth.js";
+import { sha256hex, randomToken, clientIp, parseCookie, SESSION_COOKIE } from "./auth.js";
+import { pageCacheKey, mediaCacheKey, edgeGet, edgePut } from "./edge.js";
 import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, canClaimRole } from "./family.js";
 import { coverUrls } from "./cover.js";
 import { saveHouseholdToken, rotateHouseholdToken, familyLinkUrl } from "./links.js";
-import { IDEAS, renderIdeasBody } from "./ideas.js";
-import { privacyPage, termsPage, aboutPage, notFoundPage } from "./pages.js";
+import { IDEAS } from "./ideas.js";
+import { privacyPage, termsPage, aboutPage, notFoundPage, ideasPage, busyPage } from "./pages.js";
 import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_LIMIT } from "./limits.js";
 
 const NAME_MAX = 80;
@@ -21,16 +22,40 @@ const YEAR_MAX = 2100;
 
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
+const BUSY_MESSAGE = "Recurday is very busy right now. Please try again in a minute.";
+const deferred = new WeakMap();
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
+    if (ctx) deferred.set(request, ctx);
     try {
       return await handle(request, env);
     } catch (err) {
+      // Free-plan daily limits, an overloaded database, or a bug: show a calm
+      // "try again" page instead of a crash. Saves are single statements, so a
+      // failed request never leaves half-saved data behind.
       console.error(err);
-      return json({ error: "Something went wrong." }, 500);
+      const path = new URL(request.url).pathname;
+      const isApi = path.startsWith("/api/");
+      if (!isApi && path.startsWith("/media/")) {
+        return new Response(BUSY_MESSAGE, { status: 503, headers: { ...SECURITY, "retry-after": "60", "cache-control": "no-store" } });
+      }
+      if (!isApi && request.method === "GET" && wantsHtml(request)) return busyPage(request);
+      return json({ error: BUSY_MESSAGE }, 503, { "retry-after": "60" });
     }
   },
 };
+
+/** Run a best-effort task after the response is sent (falls back to awaiting). */
+async function later(request, promise) {
+  const ctx = deferred.get(request);
+  if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(promise);
+  else await promise;
+}
+
+function hasSessionCookie(request) {
+  return Boolean(parseCookie(request.headers.get("cookie") || "", SESSION_COOKIE));
+}
 
 async function handle(request, env) {
   const url = new URL(request.url);
@@ -206,14 +231,18 @@ async function loadDays(env, traditionId, yearsPolicy, includeMedia) {
     if (allowed) days = days.filter((d) => allowed.has(d.year));
   }
   if (!includeMedia) return days.map((d) => ({ ...d, media: [] }));
-  const out = [];
-  for (const day of days) {
-    const media = (await env.DB.prepare(
-      "SELECT id, mime, byte_size, created_at FROM media WHERE day_id = ? ORDER BY created_at ASC"
-    ).bind(day.id).all()).results || [];
-    out.push({ ...day, media });
+  // One query for every photo in this tradition (instead of one per year).
+  const rows = days.length ? ((await env.DB.prepare(
+    `SELECT media.id, media.day_id, media.mime, media.byte_size, media.created_at
+     FROM media JOIN days ON days.id = media.day_id
+     WHERE days.tradition_id = ? ORDER BY media.created_at ASC`
+  ).bind(traditionId).all()).results || []) : [];
+  const byDay = new Map();
+  for (const r of rows) {
+    if (!byDay.has(r.day_id)) byDay.set(r.day_id, []);
+    byDay.get(r.day_id).push({ id: r.id, mime: r.mime, byte_size: r.byte_size, created_at: r.created_at });
   }
-  return out;
+  return days.map((d) => ({ ...d, media: byDay.get(d.id) || [] }));
 }
 
 async function traditionUsage(env, traditionId) {
@@ -388,7 +417,12 @@ async function upload(request, env) {
   const id = crypto.randomUUID();
   const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : mime === "image/gif" ? "gif" : "jpg";
   const key = `${auth.tradition.id}/${day.id}/${id}.${ext}`;
-  await mediaStore(env).put(key, file, { contentType: mime });
+  try {
+    await mediaStore(env).put(key, file, { contentType: mime });
+  } catch (err) {
+    console.error(err);
+    return json({ error: "We couldn't save photos right now because Recurday is very busy. Your photo wasn't saved. Please try again later." }, 503, { "retry-after": "3600" });
+  }
   await env.DB.prepare(
     `INSERT INTO media (id, day_id, r2_key, mime, byte_size, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`
@@ -421,14 +455,37 @@ async function media(request, env, url) {
       }
     }
   }
-  const obj = await mediaStore(env).get(row.r2_key);
-  if (!obj) return new Response("Not found", { status: 404, headers: SECURITY });
+  // Photos never change once saved (a new photo gets a new id), so the
+  // browser may keep it for a year.
+  return servePhoto(request, env, row.r2_key, row.mime, "private, max-age=31536000, immutable");
+}
+
+/**
+ * Serve stored photo bytes. Only called after the link/login check passed.
+ * Bytes come from the local Cloudflare edge cache when possible, which saves
+ * a Workers KV read (Free plan: 100,000 reads/day).
+ */
+async function servePhoto(request, env, storageKey, mime, browserCache) {
+  const key = mediaCacheKey(originOf(request), storageKey);
+  let bytes = null;
+  let edge = "miss";
+  const hit = await edgeGet(key);
+  if (hit) {
+    bytes = await hit.arrayBuffer();
+    edge = "hit";
+  } else {
+    const obj = await mediaStore(env).get(storageKey);
+    if (!obj) return new Response("Not found", { status: 404, headers: SECURITY });
+    bytes = await new Response(obj.body).arrayBuffer();
+    await later(request, edgePut(key, new Response(bytes, { headers: { "content-type": mime } }), "media"));
+  }
   const headers = new Headers(SECURITY);
-  headers.set("content-type", row.mime);
-  headers.set("cache-control", "private, max-age=3600");
+  headers.set("content-type", mime);
+  headers.set("cache-control", browserCache);
   headers.set("content-disposition", "inline");
   headers.set("x-content-type-options", "nosniff");
-  return new Response(obj.body, { headers });
+  headers.set("x-recurday-edge", edge);
+  return new Response(bytes, { headers });
 }
 
 
@@ -472,14 +529,9 @@ async function serveCover(request, env, url, rest) {
     mime = row.mime || mime;
   }
   if (!key) return new Response("Not found", { status: 404, headers: SECURITY });
-  const obj = await mediaStore(env).get(key);
-  if (!obj) return new Response("Not found", { status: 404, headers: SECURITY });
-  const headers = new Headers(SECURITY);
-  headers.set("content-type", mime);
-  headers.set("cache-control", "private, max-age=3600");
-  headers.set("content-disposition", "inline");
-  headers.set("x-content-type-options", "nosniff");
-  return new Response(obj.body, { headers });
+  // The cover URL stays the same when the family picks a new cover, so the
+  // browser re-checks hourly; the stored bytes for a given key never change.
+  return servePhoto(request, env, key, mime, "private, max-age=3600");
 }
 
 async function createShare(request, env) {
@@ -601,7 +653,31 @@ async function traditionPage(request, env, url, expectedRole) {
       body: `<h1>This link isn't valid.</h1><p class="lead">It may have been typed wrong, or the family who sent it may have stopped the share.</p>`,
     }), 404);
   }
-  return renderTraditionResponse(request, env, auth, url, { newHousehold: expectedRole === "admin" ? url.searchParams.get("new") : "", family, token });
+  // Shared links are the viral path: cache the page at the edge for visitors
+  // who aren't logged in. Keeper (admin) pages are never cached.
+  const cacheable = request.method === "GET" && !family && !hasSessionCookie(request) &&
+    (auth.role === "household" || auth.role === "share");
+  let key = "";
+  if (cacheable) {
+    key = await pageCacheKey(originOf(request), auth, url);
+    const hit = await edgeGet(key);
+    if (hit) return linkPageResponse(hit.body, hit.status, hit.headers, "hit");
+  }
+  const res = await renderTraditionResponse(request, env, auth, url, { newHousehold: expectedRole === "admin" ? url.searchParams.get("new") : "", family, token });
+  if (!cacheable || res.status !== 200) return res;
+  const text = await res.text();
+  await later(request, edgePut(key, new Response(text, { status: 200, headers: res.headers }), "page"));
+  return linkPageResponse(text, 200, res.headers, "miss");
+}
+
+function linkPageResponse(body, status, sourceHeaders, edge) {
+  const headers = new Headers(sourceHeaders);
+  for (const [k, v] of Object.entries(SECURITY)) headers.set(k, v);
+  headers.set("content-type", "text/html; charset=utf-8");
+  // Browsers and shared proxies must not keep a private link page.
+  headers.set("cache-control", "private, no-cache");
+  headers.set("x-recurday-edge", edge);
+  return new Response(body, { status, headers });
 }
 
 async function familyTraditionPage(request, env, url) {
@@ -976,17 +1052,4 @@ function renderClaim(data, token, family) {
         <p class="error hidden" id="claim-error"></p>
       </form>
     </div>`;
-}
-
-async function ideasPage(request, env) {
-  const family = await familyFromRequest(request, env);
-  return html(pageShell({
-    title: "Ideas — Recurday",
-    description: "Borrow a family tradition idea. Make it yours.",
-    ogTitle: "Ideas — Recurday",
-    ogDescription: "Borrow a family tradition idea. Make it yours.",
-    origin: originOf(request),
-    nav: familyNav(family),
-    body: renderIdeasBody(),
-  }));
 }

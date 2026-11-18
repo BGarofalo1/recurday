@@ -72,12 +72,21 @@ Hosting is on Cloudflare Workers, with D1 for metadata and a private Workers KV 
 2. Create a D1 database named `recurday` (or reuse the one in `wrangler.toml`) and apply migrations: `npx wrangler d1 migrations apply recurday --remote`
 3. Create a KV namespace named `recurday-media` and put its id in `wrangler.toml`. Do not reuse a namespace from another project.
 4. Set a session secret once, and never commit it: `npx wrangler secret put SESSION_SECRET`
-5. `npx wrangler deploy`
+5. `npm run deploy` (builds the static pages, applies migrations, then deploys)
 
 A custom domain is optional and is not included here. Do not commit `.dev.vars`, `.wrangler/`, or any secrets.
 
 D1 Time Travel is always on and does not cost extra. On the Workers Free plan it can restore the database to a minute in the last 7 days (`wrangler d1 time-travel`). A paid Workers plan would keep 30 days; Recurday is not using a paid plan. Time Travel covers database rows (names, notes, dates, and link hashes), not the photo files in Workers KV. Families should use **Save a copy** if they want their own backup of photos.
 
+
+## Built for a rush (Workers Free plan)
+
+Recurday is designed to stay up when a texted link spreads, without a paid plan:
+
+- **Static files run no code.** CSS, JS, icons, the offline page, and the prebuilt Ideas, About, Privacy, and Terms pages (`npm run build` writes them from `src/pages.js`) are served as static assets. Only the paths in `run_worker_first` in `wrangler.toml` start the Worker. Static asset requests are free and unlimited ([Cloudflare docs](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)).
+- **Shared-link pages are cached at the edge** for visitors who aren't logged in (`src/edge.js`, Cloudflare Cache API). The cache key hides the link token and includes a `page_version` that database triggers bump on every edit (migration 0005), so edits show up at once. Logged-in and keeper pages are never cached.
+- **Photos** are checked against the link or login on every request, then served from the edge cache when possible, so most views skip the Workers KV read. Browsers may keep a photo for a year because a saved photo never changes.
+- **When a free daily limit runs out**, pages show a calm "very busy, try again in a minute" message (HTTP 503) instead of crashing. Saves are all-or-nothing, so nothing is half-written.
 
 To move photos to a private R2 bucket later, follow the steps at the top of `src/storage.js`.
 

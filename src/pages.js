@@ -1,5 +1,6 @@
 import { html, esc, pageShell, familyNav, originOf, TAGLINE, TAGLINE_SUPPORT } from "./http.js";
 import { familyFromRequest } from "./family.js";
+import { renderIdeasBody } from "./ideas.js";
 
 const UPDATED = "November 17, 2026";
 const SOURCE = "https://github.com/BGarofalo1/recurday";
@@ -98,4 +99,41 @@ export async function notFoundPage(request, env, message) {
     nav: familyNav(family),
     body,
   }), 404);
+}
+
+export async function ideasPage(request, env) {
+  let family = null;
+  try { family = env ? await familyFromRequest(request, env) : null; } catch {}
+  return html(pageShell({
+    title: "Ideas — Recurday",
+    description: "Borrow a family tradition idea. Make it yours.",
+    ogTitle: "Ideas — Recurday",
+    ogDescription: "Borrow a family tradition idea. Make it yours.",
+    origin: originOf(request),
+    nav: familyNav(family),
+    body: renderIdeasBody(),
+  }));
+}
+
+/**
+ * Shown when Cloudflare's free daily limits run out or the database is
+ * overloaded. Nothing is lost: every save is all-or-nothing, so the family
+ * can simply try again.
+ */
+export function busyPage(request) {
+  const body = `
+    <article class="legal">
+      <h1>Recurday is very busy right now.</h1>
+      <p class="lead">Lots of families are opening links at once. Please try again in a minute.</p>
+      <p>Your photos and notes are safe. Nothing was lost.</p>
+      <p><a class="btn" href="">Try again</a></p>
+    </article>`;
+  return html(pageShell({
+    title: "Busy — Recurday",
+    description: "Recurday is very busy right now. Please try again in a minute.",
+    ogTitle: "Recurday",
+    ogDescription: TAGLINE,
+    origin: originOf(request),
+    body,
+  }), 503, { "retry-after": "60", "cache-control": "no-store" });
 }

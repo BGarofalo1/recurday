@@ -1,10 +1,11 @@
 /* Recurday app shell only. Never cache family photos or tradition pages. */
-const CACHE = "recurday-shell-v9";
+const CACHE = "recurday-shell-v10";
+// Every file here is a static asset, so installing the worker never counts
+// toward the Worker's daily request limit. "/" is cached when visited.
 const SHELL = [
-  "/",
   "/styles.css",
   "/app.js",
-  "/offline.html",
+  "/offline",
   "/favicon.png",
   "/favicon.ico",
   "/icons/icon-32.png",
@@ -40,7 +41,7 @@ self.addEventListener("fetch", (event) => {
 
   if (PRIVATE.test(url.pathname)) {
     if (event.request.mode === "navigate") {
-      event.respondWith(fetch(event.request).catch(() => caches.match("/offline.html")));
+      event.respondWith(fetch(event.request).catch(() => caches.match("/offline")));
     }
     return;
   }
@@ -55,7 +56,7 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(async () => (await caches.match("/")) || (await caches.match("/offline.html")))
+        .catch(async () => (await caches.match("/")) || (await caches.match("/offline")))
     );
     return;
   }
