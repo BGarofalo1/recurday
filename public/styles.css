@@ -13,6 +13,8 @@
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif;
   --sans: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
   --rainbow: linear-gradient(90deg, #e4452e, #f07812, #efc100, #2fa24c, #2b7de1, #4b3cb8, #8d2db5);
+  /* Darker stops so rainbow text stays readable on white. */
+  --rainbow-text: linear-gradient(90deg, var(--hue-red), var(--hue-orange), var(--hue-yellow), var(--hue-green), var(--hue-blue), var(--hue-indigo), var(--hue-violet));
   --hue-red: #c2392a;
   --hue-orange: #c45c12;
   --hue-yellow: #8a6a00;
@@ -738,19 +740,81 @@ hr.soft {
 .more-link { margin: 0.2rem 0 0.8rem; }
 .idea-list {
   display: grid;
-  gap: 0.9rem;
-  margin: 1.1rem 0 0;
+  gap: 1.25rem;
+  margin: 1.4rem 0 0;
 }
+.idea-card {
+  margin: 0;
+  padding: 1.35rem 1.25rem 1.4rem 1.3rem;
+  border-left-width: 6px;
+  border-left-color: var(--card-hue, var(--hue-red));
+  background: var(--card-wash, var(--card));
+}
+.idea-card:nth-of-type(7n+1) { --card-wash: var(--wash-red); }
+.idea-card:nth-of-type(7n+2) { --card-wash: var(--wash-orange); }
+.idea-card:nth-of-type(7n+3) { --card-wash: var(--wash-yellow); }
+.idea-card:nth-of-type(7n+4) { --card-wash: var(--wash-green); }
+.idea-card:nth-of-type(7n+5) { --card-wash: var(--wash-blue); }
+.idea-card:nth-of-type(7n+6) { --card-wash: var(--wash-indigo); }
+.idea-card:nth-of-type(7n+7) { --card-wash: var(--wash-violet); }
 .idea-card h2 {
-  margin: 0 0 0.4rem;
-  font-size: 1.35rem;
+  margin: 0 0 0.55rem;
+  font-size: 1.42rem;
+  font-weight: 700;
+  color: var(--card-hue, var(--hue-indigo));
 }
-.idea-how { margin: 0 0 0.45rem; }
+.idea-how { margin: 0 0 0.55rem; }
 .idea-when {
   color: var(--muted);
-  margin: 0 0 0.9rem;
+  margin: 0 0 1.05rem;
 }
 .idea-card .btn { margin-top: 0; }
+
+/* Ideas headline: solid indigo fallback, then rainbow clipped to the letters. */
+.ideas-page h1 {
+  color: var(--hue-indigo);
+  letter-spacing: 0.02em;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ideas-page h1 {
+    background-image: var(--rainbow-text);
+    background-size: 100% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+}
+
+/* Let the Ideas entry on home, More, and the footer pop a little. */
+.quiet-links a[href="/ideas"],
+.more-link a[href="/ideas"],
+.site-foot a[href="/ideas"],
+.legal a[href="/ideas"] {
+  color: var(--hue-indigo);
+  font-weight: 650;
+  text-decoration-color: var(--hue-indigo);
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .quiet-links a[href="/ideas"],
+  .more-link a[href="/ideas"],
+  .site-foot a[href="/ideas"],
+  .legal a[href="/ideas"] {
+    background-image: var(--rainbow-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    text-decoration-color: var(--hue-indigo);
+  }
+}
+.quiet-links a[href="/ideas"]:hover,
+.more-link a[href="/ideas"]:hover,
+.site-foot a[href="/ideas"]:hover,
+.legal a[href="/ideas"]:hover {
+  text-decoration-thickness: 2px;
+}
+
 
 .skip-link {
   position: absolute;

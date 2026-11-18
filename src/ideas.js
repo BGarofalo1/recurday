@@ -102,11 +102,13 @@ export function renderIdeasBody() {
       <a class="btn" href="/calendar?idea=${esc(idea.slug)}">Make it ours</a>
     </article>`).join("");
   return `
+    <div class="ideas-page">
     <h1>Ideas</h1>
     <p class="lead">Borrow one. Make it yours.</p>
     <p class="support">Not a contest. Just days a family can keep at home.</p>
     <div class="idea-list">
       ${cards}
     </div>
-    <p class="start-own-quiet"><a href="/">Back</a></p>`;
+    <p class="start-own-quiet"><a href="/">Back</a></p>
+    </div>`;
 }
