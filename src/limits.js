@@ -3,6 +3,11 @@ import { json, nowIso } from "./http.js";
 export const UPLOAD_LIMIT = 40;
 export const UPLOAD_WINDOW_MS = 15 * 60 * 1000;
 export const CREATE_LIMIT = 8;
+// Limits keyed by internet address are looser, because many phones can share
+// one address (mobile carriers, school or church Wi-Fi). Per-family and
+// per-family-name limits stay tight.
+export const CREATE_IP_LIMIT = 30;
+export const IP_FAIL_LIMIT = 30;
 
 export async function assertRateLimit(env, key, limit, windowMs) {
   const now = Date.now();

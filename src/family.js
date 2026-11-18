@@ -39,7 +39,7 @@ import { json, html, esc, pageShell, familyNav, nowIso, clip, originOf, isSecure
 import { mediaStore } from "./storage.js";
 import { PHOTO_MAX, PHOTO_TYPES, extForMime, coverUrls, isDedicatedCoverKey } from "./cover.js";
 import { ideaBySlug, ideaRecurType, nextIdeaDate } from "./ideas.js";
-import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_LIMIT } from "./limits.js";
+import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_LIMIT, CREATE_IP_LIMIT, IP_FAIL_LIMIT } from "./limits.js";
 
 const EXPORT_MAX = 40 * 1024 * 1024;
 const NAME_MAX = 80;
@@ -93,7 +93,8 @@ async function recordFailure(env, ip, key) {
   for (const lockKey of [`ip:${ip}`, key ? `name:${key}` : null].filter(Boolean)) {
     const row = await readLock(env, lockKey);
     const fail = Number(row?.fail_count || 0) + 1;
-    const until = fail >= FAIL_LIMIT ? new Date(Date.now() + LOCK_MS).toISOString() : null;
+    const limit = lockKey.startsWith("ip:") ? IP_FAIL_LIMIT : FAIL_LIMIT;
+    const until = fail >= limit ? new Date(Date.now() + LOCK_MS).toISOString() : null;
     if (row) {
       await env.DB.prepare(
         "UPDATE login_attempts SET fail_count = ?, locked_until = ?, updated_at = ? WHERE key = ?"
@@ -192,7 +193,7 @@ async function createFamily(request, env) {
   const key = nameKey(display);
   const lockedRes = await assertNotLocked(env, ip, key);
   if (lockedRes) return lockedRes;
-  const createdLimit = await assertRateLimit(env, `rl:create:ip:${ip}`, CREATE_LIMIT, UPLOAD_WINDOW_MS);
+  const createdLimit = await assertRateLimit(env, `rl:create:ip:${ip}`, CREATE_IP_LIMIT, UPLOAD_WINDOW_MS);
   if (createdLimit) return createdLimit;
   const existing = await findFamilyByName(env, display);
   if (existing) return json({ error: "That family name is already in use. If this is your family, log in." }, 409);

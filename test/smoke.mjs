@@ -873,6 +873,12 @@ async function main() {
       body: JSON.stringify({ name: lockerName, passcode: "definitely-wrong" }),
     });
     check("login is locked after repeated failures", locked.status === 429, `status=${locked.status} prior=${lastLock.status}`);
+    const neighbor = await fetch(`${base}/api/family/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: goneName, passcode: gonePass }),
+    });
+    check("one family's wrong guesses don't lock out others on the same Wi-Fi", neighbor.status === 200, `status=${neighbor.status}`);
 
   } finally {
     if (child && !child.killed) {

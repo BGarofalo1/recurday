@@ -8,7 +8,7 @@ import { coverUrls } from "./cover.js";
 import { saveHouseholdToken, rotateHouseholdToken, familyLinkUrl } from "./links.js";
 import { IDEAS } from "./ideas.js";
 import { privacyPage, termsPage, aboutPage, notFoundPage, ideasPage, busyPage } from "./pages.js";
-import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_LIMIT } from "./limits.js";
+import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_IP_LIMIT } from "./limits.js";
 
 const NAME_MAX = 80;
 const TIMING_MAX = 200;
@@ -299,7 +299,7 @@ async function present(env, auth, origin) {
 }
 
 async function createTradition(request, env) {
-  const limited = await assertRateLimit(env, `rl:create:ip:${clientIp(request)}`, CREATE_LIMIT, UPLOAD_WINDOW_MS);
+  const limited = await assertRateLimit(env, `rl:create:ip:${clientIp(request)}`, CREATE_IP_LIMIT, UPLOAD_WINDOW_MS);
   if (limited) return limited;
   const body = await readBody(request);
   const name = clip(body.name, NAME_MAX);
