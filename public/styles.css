@@ -774,6 +774,8 @@ hr.soft {
 .ideas-page h1 {
   color: var(--hue-indigo);
   letter-spacing: 0.02em;
+  width: fit-content; /* gradient spans the letters, not the full row */
+  max-width: 100%;
 }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .ideas-page h1 {
