@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Generate Recurday's rainbow mark, app icons, favicon, and og.png.
 
+Home-screen icons (144px and up) show the rainbow over the word Recurday.
+Tiny favicons stay a rainbow-only mark, because the word will not fit.
+
 Run from the repo root:  python3 scripts/generate-brand.py
 Uses only the local palette — no network, no paid tools.
 """
@@ -67,25 +70,70 @@ def draw_rainbow_arc(
         img.paste(base.convert(img.mode))
 
 
-def make_icon(size: int, padding: float, path: Path) -> None:
+# Geometry of the 200–340° rainbow arc, in units of r_outer.
+# Width spans both endpoints; height is the top of the outer arc down to those endpoints.
+_ARC_WIDTH_K = 2 * abs(math.cos(math.radians(200)))
+_ARC_HEIGHT_K = 1 - abs(math.sin(math.radians(200)))
+
+
+def fit_title_font(text: str, max_width: int, max_size: int) -> ImageFont.FreeTypeFont:
+    lo, hi = 1, max_size
+    best = ImageFont.truetype(str(SERIF), 1)
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        font = ImageFont.truetype(str(SERIF), mid)
+        box = font.getbbox(text)
+        if box[2] - box[0] <= max_width:
+            best = font
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return best
+
+
+def make_icon(
+    size: int,
+    padding: float,
+    path: Path,
+    label: bool = False,
+    text_padding: float | None = None,
+) -> None:
     scale = 8
     S = size * scale
     pad = S * padding
     img = Image.new("RGB", (S, S), PAPER)
-    # Semicircle rainbow, bounding box centered in the padded square.
-    r_outer = (S - 2 * pad) / 2
-    # Leave a generous inner hole so the arc reads clearly at small sizes.
-    r_inner = r_outer * 0.42
+    start, end = 200, 340
     cx = S / 2
-    # Vertically center the arc's bounding box (top = cy - r_outer, bottom = cy at the endpoints of a 180° arc).
-    # Use a slightly open arc (200–340) which is shorter; adjust cy so the painted arc sits in the middle.
-    start, end = 200, 340
-    # Endpoints sit at these angles (PIL: 0 is east, clockwise? PIL/ImageDraw: 0 is 3 o'clock, increasing clockwise).
-    # PIL angles: 0 is east, 90 is south, 180 is west, 270 is north. So a rainbow uses 180–360 (west, north, east)
-    # or a tighter 200–340.
-    start, end = 200, 340
-    cy = S / 2 + r_outer * 0.38
-    draw_rainbow_arc(img, cx, cy, r_outer, r_inner, start, end)
+
+    if label:
+        title = "Recurday"
+        text_side = S * (text_padding if text_padding is not None else padding)
+        font = fit_title_font(title, int(S - 2 * text_side), int(S * 0.28))
+        box = font.getbbox(title)
+        tw, th = box[2] - box[0], box[3] - box[1]
+        gap = max(S * 0.03, th * 0.28)
+        avail_h = S - 2 * pad
+        r_outer = min((S - 2 * pad) / _ARC_WIDTH_K, (avail_h - gap - th) / _ARC_HEIGHT_K)
+        r_inner = r_outer * 0.42
+        arc_h = r_outer * _ARC_HEIGHT_K
+        stack_h = arc_h + gap + th
+        stack_top = max(pad, (S - stack_h) / 2)
+        # cy is the arc's circle center: the top of the outer arc sits at stack_top.
+        cy = stack_top + r_outer
+        draw_rainbow_arc(img, cx, cy, r_outer, r_inner, start, end)
+        draw = ImageDraw.Draw(img)
+        text_top = stack_top + arc_h + gap
+        draw.text(((S - tw) / 2 - box[0], text_top - box[1]), title, font=font, fill=INK)
+    else:
+        # Semicircle rainbow, bounding box centered in the padded square.
+        r_outer = (S - 2 * pad) / 2
+        # Leave a generous inner hole so the arc reads clearly at small sizes.
+        r_inner = r_outer * 0.42
+        # Vertically center the painted 200–340° arc in the square.
+        # PIL angles: 0 is east, 90 is south, 180 is west, 270 is north.
+        cy = S / 2 + r_outer * 0.38
+        draw_rainbow_arc(img, cx, cy, r_outer, r_inner, start, end)
+
     out = img.resize((size, size), Image.Resampling.LANCZOS)
     path.parent.mkdir(parents=True, exist_ok=True)
     out.save(path, "PNG", optimize=True)
@@ -244,16 +292,19 @@ def make_og(path: Path) -> None:
 def main() -> None:
     ICONS.mkdir(parents=True, exist_ok=True)
     make_mark_svg(ICONS / "mark.svg")
-    make_icon(192, padding=0.14, path=ICONS / "icon-192.png")
-    make_icon(512, padding=0.14, path=ICONS / "icon-512.png")
-    # Maskable: important content inside the center 80% safe zone.
-    make_icon(192, padding=0.22, path=ICONS / "icon-192-maskable.png")
-    make_icon(512, padding=0.22, path=ICONS / "icon-512-maskable.png")
-    make_icon(180, padding=0.14, path=PUBLIC / "apple-touch-icon.png")
+    # Tiny favicons cannot hold a readable word, so they stay a rainbow-only mark.
     make_icon(64, padding=0.12, path=PUBLIC / "favicon.png")
-    for size in (16, 32, 48, 96, 144):
+    for size in (16, 32, 48, 96):
         pad = 0.12 if size <= 32 else 0.14
         make_icon(size, padding=pad, path=ICONS / f"icon-{size}.png")
+    # Home-screen icons: the rainbow over the word Recurday, in the brand serif.
+    make_icon(144, padding=0.10, path=ICONS / "icon-144.png", label=True, text_padding=0.06)
+    make_icon(180, padding=0.10, path=PUBLIC / "apple-touch-icon.png", label=True, text_padding=0.06)
+    make_icon(192, padding=0.10, path=ICONS / "icon-192.png", label=True, text_padding=0.06)
+    make_icon(512, padding=0.10, path=ICONS / "icon-512.png", label=True, text_padding=0.06)
+    # Maskable: keep the word inside the center 80% safe zone, with a little buffer.
+    make_icon(192, padding=0.14, path=ICONS / "icon-192-maskable.png", label=True, text_padding=0.12)
+    make_icon(512, padding=0.14, path=ICONS / "icon-512-maskable.png", label=True, text_padding=0.12)
     Image.open(ICONS / "icon-48.png").convert("RGBA").save(
         PUBLIC / "favicon.ico",
         format="ICO",

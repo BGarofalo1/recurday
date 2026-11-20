@@ -67,7 +67,7 @@ Recurday is a Progressive Web App. It uses a small service worker that caches on
 
 **On Android:** open Recurday in Chrome. When you see the prompt, tap **Add**. Or open the Chrome menu and choose **Add to Home screen**.
 
-Icons and the share image are generated locally by `python3 scripts/generate-brand.py`.
+Icons and the share image are generated locally by `python3 scripts/generate-brand.py`. The home-screen icon shows the rainbow over the word Recurday; tiny favicons stay a rainbow-only mark.
 
 A family's own calendar can also be added to a phone or computer calendar app through a private `.ics` link. That link is unguessable; you can rotate it if it ever leaks.
 
