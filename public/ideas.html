@@ -8,11 +8,20 @@
   <meta name="referrer" content="no-referrer">
   <title>Ideas — Recurday</title>
   <meta name="description" content="Borrow a family tradition idea. Make it yours.">
+  <meta property="og:site_name" content="Recurday">
   <meta property="og:title" content="Ideas — Recurday">
   <meta property="og:description" content="Borrow a family tradition idea. Make it yours.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://recurday.bgarofalo1.workers.dev/og.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A rainbow over the word Recurday. Creating family traditions. It was always about the small things.">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Ideas — Recurday">
+  <meta name="twitter:description" content="Borrow a family tradition idea. Make it yours.">
+  <meta name="twitter:image" content="https://recurday.bgarofalo1.workers.dev/og.png">
+  <meta name="twitter:image:alt" content="A rainbow over the word Recurday. Creating family traditions. It was always about the small things.">
   <meta name="theme-color" content="#ffffff">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -30,7 +39,7 @@
   <a class="skip-link" href="#content">Skip to content</a>
   <div class="wrap" id="content">
     <header class="top">
-      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="36" height="22" alt="">Recurday</a>
+      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="72" height="42" alt="">Recurday</a>
       
     </header>
     
@@ -38,75 +47,838 @@
     <h1>Ideas</h1>
     <p class="lead">Borrow one. Make it yours.</p>
     <p class="support">Not a contest. Just days a family can keep at home.</p>
-    <div class="idea-list">
+    <p class="share-jump"><a class="btn secondary" href="#share-idea">Share an idea</a></p>
+    <div class="idea-filters" id="idea-filters" hidden>
+      <div class="chip-row" role="group" aria-label="Season"><span class="chip-label">Season</span><div class="chips"><button type="button" class="chip" data-filter="season" data-value="" aria-pressed="true">All</button><button type="button" class="chip" data-filter="season" data-value="winter" aria-pressed="false">Winter</button><button type="button" class="chip" data-filter="season" data-value="spring" aria-pressed="false">Spring</button><button type="button" class="chip" data-filter="season" data-value="summer" aria-pressed="false">Summer</button><button type="button" class="chip" data-filter="season" data-value="fall" aria-pressed="false">Fall</button><button type="button" class="chip" data-filter="season" data-value="any" aria-pressed="false">Any time</button></div></div><div class="chip-row" role="group" aria-label="Age"><span class="chip-label">Age</span><div class="chips"><button type="button" class="chip" data-filter="age" data-value="" aria-pressed="true">All</button><button type="button" class="chip" data-filter="age" data-value="little" aria-pressed="false">Little kids</button><button type="button" class="chip" data-filter="age" data-value="big" aria-pressed="false">Big kids</button><button type="button" class="chip" data-filter="age" data-value="teens" aria-pressed="false">Teens</button><button type="button" class="chip" data-filter="age" data-value="adults" aria-pressed="false">Adults &amp; couples</button><button type="button" class="chip" data-filter="age" data-value="grand" aria-pressed="false">Grandparents</button><button type="button" class="chip" data-filter="age" data-value="family" aria-pressed="false">Whole family</button></div></div><div class="chip-row" role="group" aria-label="Type"><span class="chip-label">Type</span><div class="chips"><button type="button" class="chip" data-filter="type" data-value="" aria-pressed="true">All</button><button type="button" class="chip" data-filter="type" data-value="breakfast" aria-pressed="false">Breakfast</button><button type="button" class="chip" data-filter="type" data-value="lunch" aria-pressed="false">Lunch</button><button type="button" class="chip" data-filter="type" data-value="dinner" aria-pressed="false">Dinner</button><button type="button" class="chip" data-filter="type" data-value="restaurants" aria-pressed="false">Restaurants</button><button type="button" class="chip" data-filter="type" data-value="movies" aria-pressed="false">Movies</button><button type="button" class="chip" data-filter="type" data-value="games" aria-pressed="false">Games</button><button type="button" class="chip" data-filter="type" data-value="sports" aria-pressed="false">Sports games</button><button type="button" class="chip" data-filter="type" data-value="music" aria-pressed="false">Music</button><button type="button" class="chip" data-filter="type" data-value="outdoors" aria-pressed="false">Outdoors</button><button type="button" class="chip" data-filter="type" data-value="crafts" aria-pressed="false">Crafts</button><button type="button" class="chip" data-filter="type" data-value="books" aria-pressed="false">Books &amp; stories</button><button type="button" class="chip" data-filter="type" data-value="faith" aria-pressed="false">Faith</button><button type="button" class="chip" data-filter="type" data-value="giving" aria-pressed="false">Giving</button><button type="button" class="chip" data-filter="type" data-value="spooky" aria-pressed="false">Spooky season</button></div></div><div class="chip-row" role="group" aria-label="Place"><span class="chip-label">Place</span><div class="chips"><button type="button" class="chip" data-filter="place" data-value="" aria-pressed="true">All</button><button type="button" class="chip" data-filter="place" data-value="snowy" aria-pressed="false">Snowy</button><button type="button" class="chip" data-filter="place" data-value="warm" aria-pressed="false">Warm</button><button type="button" class="chip" data-filter="place" data-value="city" aria-pressed="false">City</button><button type="button" class="chip" data-filter="place" data-value="country" aria-pressed="false">Country</button><button type="button" class="chip" data-filter="place" data-value="beach" aria-pressed="false">Beach</button><button type="button" class="chip" data-filter="place" data-value="anywhere" aria-pressed="false">Anywhere</button></div></div>
+      <p class="hint idea-reset hidden" id="idea-reset"><button type="button" class="text-btn" id="idea-reset-btn">Show all ideas</button></p>
+    </div>
+    <p class="empty hidden" id="idea-empty">Nothing matches yet. Try fewer filters, or share one below.</p>
+    <div class="idea-list" id="idea-list">
       
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="winter" data-age="little big teens family" data-type="movies" data-place="anywhere">
       <h2>Grinch Movie Night</h2>
       <p class="idea-how">Everyone brings something green. No green, no screen.</p>
-      <p class="idea-when">Second Saturday in December</p>
+      <p class="idea-when">Second Saturday in December<span class="idea-tags"> · Movies · Whole family</span></p>
       <a class="btn" href="/calendar?idea=grinch-movie-night">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="winter" data-age="little big family" data-type="breakfast" data-place="snowy">
       <h2>First-snow pancakes</h2>
       <p class="idea-how">Make pancakes the first time it snows, or on this Saturday if the snow is late.</p>
-      <p class="idea-when">Second Saturday in January</p>
+      <p class="idea-when">Second Saturday in January<span class="idea-tags"> · Breakfast · Whole family</span></p>
       <a class="btn" href="/calendar?idea=first-snow-pancakes">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="winter" data-age="little big family" data-type="outdoors" data-place="anywhere">
       <h2>Flashlight walk</h2>
       <p class="idea-how">After dark, walk around the block with flashlights. Cocoa when you get home.</p>
-      <p class="idea-when">First Friday in February</p>
+      <p class="idea-when">First Friday in February<span class="idea-tags"> · Outdoors · Whole family</span></p>
       <a class="btn" href="/calendar?idea=flashlight-walk">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="spring" data-age="little big family" data-type="dinner" data-place="anywhere">
       <h2>Backwards dinner</h2>
       <p class="idea-how">Dessert first, then dinner. Pajamas are welcome.</p>
-      <p class="idea-when">Second Friday in March</p>
+      <p class="idea-when">Second Friday in March<span class="idea-tags"> · Dinner · Whole family</span></p>
       <a class="btn" href="/calendar?idea=backwards-dinner">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="spring" data-age="big teens family" data-type="dinner" data-place="anywhere">
       <h2>Kids-cook night</h2>
       <p class="idea-how">The kids make dinner. Grown-ups set the table and wash up.</p>
-      <p class="idea-when">Second Sunday in April</p>
+      <p class="idea-when">Second Sunday in April<span class="idea-tags"> · Dinner · Whole family</span></p>
       <a class="btn" href="/calendar?idea=kids-cook-night">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="spring" data-age="family grand" data-type="breakfast outdoors" data-place="anywhere">
       <h2>Porch breakfast</h2>
       <p class="idea-how">Eat breakfast outside, even if it&#39;s a little chilly.</p>
-      <p class="idea-when">First Saturday in May</p>
+      <p class="idea-when">First Saturday in May<span class="idea-tags"> · Breakfast · Whole family</span></p>
       <a class="btn" href="/calendar?idea=porch-breakfast">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="summer any" data-age="little big" data-type="dinner" data-place="anywhere">
       <h2>Half-birthday cake</h2>
       <p class="idea-how">A little cake, halfway to a birthday. Candles are optional.</p>
-      <p class="idea-when">Second Saturday in June</p>
+      <p class="idea-when">Second Saturday in June<span class="idea-tags"> · Dinner · Little kids</span></p>
       <a class="btn" href="/calendar?idea=half-birthday-cake">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="summer" data-age="little big family" data-type="outdoors" data-place="country anywhere">
       <h2>Porch campout</h2>
       <p class="idea-how">Sleep on the porch or in the yard. Flashlights and stories.</p>
-      <p class="idea-when">Second Saturday in July</p>
+      <p class="idea-when">Second Saturday in July<span class="idea-tags"> · Outdoors · Whole family</span></p>
       <a class="btn" href="/calendar?idea=porch-campout">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="summer" data-age="family adults" data-type="outdoors" data-place="country">
       <h2>Stargaze night</h2>
       <p class="idea-how">Lie on a blanket and look at the stars.</p>
-      <p class="idea-when">Second Friday in August</p>
+      <p class="idea-when">Second Friday in August<span class="idea-tags"> · Outdoors · Whole family</span></p>
       <a class="btn" href="/calendar?idea=stargaze-night">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="fall any" data-age="little big family grand" data-type="books" data-place="anywhere">
       <h2>Library Saturday</h2>
       <p class="idea-how">Everyone picks a book. Read a little together after.</p>
-      <p class="idea-when">Third Saturday in September</p>
+      <p class="idea-when">Third Saturday in September<span class="idea-tags"> · Books &amp; stories · Whole family</span></p>
       <a class="btn" href="/calendar?idea=library-saturday">Make it ours</a>
     </article>
-    <article class="card idea-card">
+    <article class="card idea-card" data-season="fall" data-age="little big family" data-type="outdoors" data-place="country anywhere">
       <h2>Leaf-pile day</h2>
       <p class="idea-how">Rake a big pile and jump in it.</p>
-      <p class="idea-when">Third Saturday in October</p>
+      <p class="idea-when">Third Saturday in October<span class="idea-tags"> · Outdoors · Whole family</span></p>
       <a class="btn" href="/calendar?idea=leaf-pile-day">Make it ours</a>
     </article>
+    <article class="card idea-card" data-season="fall" data-age="little big teens" data-type="crafts spooky" data-place="anywhere">
+      <h2>Costume-planning night</h2>
+      <p class="idea-how">Sketch costume ideas and dig through the closet for pieces.</p>
+      <p class="idea-when">First Friday in October<span class="idea-tags"> · Crafts · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=costume-planning-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big family" data-type="outdoors spooky" data-place="country">
+      <h2>Pumpkin patch Saturday</h2>
+      <p class="idea-how">Everyone picks a pumpkin. Carve or paint them that night.</p>
+      <p class="idea-when">First Saturday in October<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=pumpkin-patch-saturday">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="big teens family" data-type="movies spooky" data-place="anywhere">
+      <h2>Not-too-scary movie night</h2>
+      <p class="idea-how">One gentle spooky movie, lights low, popcorn in a big bowl.</p>
+      <p class="idea-when">Second Friday in October<span class="idea-tags"> · Movies · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=not-too-scary-movie-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big" data-type="crafts spooky" data-place="anywhere">
+      <h2>Cardboard haunted house</h2>
+      <p class="idea-how">Build a haunted house from boxes. Everyone makes one room.</p>
+      <p class="idea-when">Second Sunday in October<span class="idea-tags"> · Crafts · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=cardboard-haunted-house">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="big teens family" data-type="outdoors spooky books" data-place="country anywhere">
+      <h2>Ghost-story campfire</h2>
+      <p class="idea-how">Tell silly ghost stories around a fire or a flashlight.</p>
+      <p class="idea-when">Third Friday in October<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=ghost-story-campfire">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big" data-type="breakfast spooky" data-place="anywhere">
+      <h2>Monster pancakes</h2>
+      <p class="idea-how">Green pancakes with fruit eyes. Give each monster a name.</p>
+      <p class="idea-when">Third Sunday in October<span class="idea-tags"> · Breakfast · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=monster-pancakes">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="big teens family" data-type="outdoors spooky" data-place="country">
+      <h2>Hayride and corn maze</h2>
+      <p class="idea-how">Find a hayride or corn maze. Stick together in the maze.</p>
+      <p class="idea-when">Third Saturday in October<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=hayride-and-corn-maze">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big family" data-type="dinner spooky" data-place="anywhere">
+      <h2>Witch&#39;s stew supper</h2>
+      <p class="idea-how">Any soup, called witch&#39;s stew, eaten by candlelight.</p>
+      <p class="idea-when">Fourth Friday in October<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=witchs-stew-supper">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big family" data-type="crafts outdoors spooky" data-place="country anywhere">
+      <h2>Name-the-scarecrow day</h2>
+      <p class="idea-how">Stuff old clothes with leaves. Give your scarecrow a name.</p>
+      <p class="idea-when">Fourth Saturday in October<span class="idea-tags"> · Crafts · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=name-the-scarecrow-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big teens" data-type="music spooky" data-place="anywhere">
+      <h2>Glow-stick monster mash</h2>
+      <p class="idea-how">Everyone adds one spooky song. Dance in the dark with glow sticks.</p>
+      <p class="idea-when">Fourth Sunday in October<span class="idea-tags"> · Music · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=glow-stick-monster-mash">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring any" data-age="family grand" data-type="faith giving" data-place="anywhere">
+      <h2>Gratitude jar</h2>
+      <p class="idea-how">All week, drop in thank-you notes. Read them together on Sunday.</p>
+      <p class="idea-when">First Sunday in March<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=gratitude-jar">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter any" data-age="family grand" data-type="faith dinner" data-place="anywhere">
+      <h2>Grace in our own words</h2>
+      <p class="idea-how">Before dinner, each person says a thank-you in their own words or tradition.</p>
+      <p class="idea-when">Fourth Tuesday in January<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=grace-in-our-own-words">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="big teens family grand" data-type="faith books" data-place="anywhere">
+      <h2>Verse of the year</h2>
+      <p class="idea-how">Pick one Bible verse to learn by heart together this year.</p>
+      <p class="idea-when">First Sunday in February<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=verse-of-the-year">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big family" data-type="faith lunch outdoors" data-place="anywhere">
+      <h2>Bible story picnic</h2>
+      <p class="idea-how">Read a favorite Bible story aloud on a blanket, then eat lunch.</p>
+      <p class="idea-when">Second Sunday in June<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=bible-story-picnic">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="family grand" data-type="faith music" data-place="anywhere">
+      <h2>Hymn sing Sunday</h2>
+      <p class="idea-how">Everyone picks a favorite hymn or worship song. Sing it together.</p>
+      <p class="idea-when">Third Sunday in September<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=hymn-sing-sunday">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="family grand" data-type="faith dinner" data-place="anywhere">
+      <h2>Shabbat candles and one good thing</h2>
+      <p class="idea-how">Light candles, share challah, and each say one good thing from the week.</p>
+      <p class="idea-when">First Friday in March<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=shabbat-candles-and-one-good-thing">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big family" data-type="faith crafts giving" data-place="anywhere">
+      <h2>Tzedakah box day</h2>
+      <p class="idea-how">Decorate a coin box together and choose who it will help.</p>
+      <p class="idea-when">Third Sunday in February<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=tzedakah-box-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family" data-type="faith outdoors" data-place="anywhere">
+      <h2>Havdalah under the stars</h2>
+      <p class="idea-how">On Saturday night, look for three stars, light a braided candle, wish for a good week.</p>
+      <p class="idea-when">Fourth Saturday in August<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=havdalah-under-the-stars">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family grand" data-type="faith lunch" data-place="anywhere">
+      <h2>Family du&#39;a and lunch</h2>
+      <p class="idea-how">After Friday prayers, gather for a family du&#39;a and a shared lunch.</p>
+      <p class="idea-when">First Friday in June<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=family-dua-and-lunch">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="big teens family" data-type="faith giving" data-place="anywhere">
+      <h2>Sadaqah Saturday</h2>
+      <p class="idea-how">Pick a cause together and give a little, as a family.</p>
+      <p class="idea-when">Fourth Saturday in February<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=sadaqah-saturday">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family grand" data-type="faith music" data-place="anywhere">
+      <h2>Diya and bhajan evening</h2>
+      <p class="idea-how">Light a small diya, sing a favorite bhajan, and share a family story.</p>
+      <p class="idea-when">Third Friday in August<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=diya-and-bhajan-evening">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="big teens family" data-type="faith giving" data-place="anywhere">
+      <h2>Seva morning</h2>
+      <p class="idea-how">Spend a morning serving together, like a food pantry or a temple kitchen.</p>
+      <p class="idea-when">Third Saturday in March<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=seva-morning">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="teens adults grand" data-type="faith breakfast" data-place="anywhere">
+      <h2>Mindful tea morning</h2>
+      <p class="idea-how">Sit quietly for five minutes, then share tea and one kind wish for the week.</p>
+      <p class="idea-when">Second Sunday in January<span class="idea-tags"> · Faith · Teens</span></p>
+      <a class="btn" href="/calendar?idea=mindful-tea-morning">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family adults" data-type="faith outdoors" data-place="anywhere">
+      <h2>Kindness walk</h2>
+      <p class="idea-how">Walk slowly and silently wish well to everyone you pass.</p>
+      <p class="idea-when">Third Sunday in July<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=kindness-walk">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="little big family" data-type="faith crafts outdoors" data-place="anywhere">
+      <h2>Painted prayer rocks</h2>
+      <p class="idea-how">Paint rocks with a word you&#39;re thankful for and set them in the garden.</p>
+      <p class="idea-when">Second Saturday in April<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=painted-prayer-rocks">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="family grand" data-type="faith outdoors" data-place="anywhere">
+      <h2>Neighborhood blessing walk</h2>
+      <p class="idea-how">Walk your streets and say a quiet blessing or good wish for each one.</p>
+      <p class="idea-when">Fourth Sunday in May<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=neighborhood-blessing-walk">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="grand family" data-type="faith books" data-place="anywhere">
+      <h2>How grandma kept the faith</h2>
+      <p class="idea-how">Grandparents share how they practiced their faith growing up.</p>
+      <p class="idea-when">First Sunday in November<span class="idea-tags"> · Faith · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=how-grandma-kept-the-faith">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="adults" data-type="restaurants dinner" data-place="city anywhere">
+      <h2>Same-booth date night</h2>
+      <p class="idea-how">Go back to the same restaurant. Sit in the same booth if you can.</p>
+      <p class="idea-when">Second Thursday in March<span class="idea-tags"> · Restaurants · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=same-booth-date-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="adults" data-type="dinner books" data-place="anywhere">
+      <h2>Anniversary letters</h2>
+      <p class="idea-how">Write each other a letter. Read last year&#39;s first, over dinner.</p>
+      <p class="idea-when">Third Friday in February<span class="idea-tags"> · Dinner · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=anniversary-letters">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="adults" data-type="breakfast outdoors" data-place="beach anywhere">
+      <h2>Sunrise coffee date</h2>
+      <p class="idea-how">Wake early, take coffee somewhere with a view, watch the sun come up.</p>
+      <p class="idea-when">First Saturday in August<span class="idea-tags"> · Breakfast · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=sunrise-coffee-date">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="adults" data-type="dinner" data-place="anywhere">
+      <h2>Couples&#39; cook-along</h2>
+      <p class="idea-how">Each cook one dish from a cuisine you&#39;ve never tried. Swap plates.</p>
+      <p class="idea-when">Fourth Saturday in January<span class="idea-tags"> · Dinner · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=couples-cook-along">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="adults" data-type="dinner" data-place="anywhere">
+      <h2>Same-friends potluck</h2>
+      <p class="idea-how">Invite the same friends every year. Everyone brings their signature dish.</p>
+      <p class="idea-when">Third Saturday in May<span class="idea-tags"> · Dinner · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=same-friends-potluck">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall any" data-age="adults" data-type="music" data-place="anywhere">
+      <h2>Kitchen slow dance</h2>
+      <p class="idea-how">Play your song and dance while dinner cooks.</p>
+      <p class="idea-when">Second Friday in November<span class="idea-tags"> · Music · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=kitchen-slow-dance">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="adults" data-type="books restaurants" data-place="anywhere">
+      <h2>Book club of two</h2>
+      <p class="idea-how">Read the same book this month. Talk about it over dessert out.</p>
+      <p class="idea-when">Last Sunday in January<span class="idea-tags"> · Books &amp; stories · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=book-club-of-two">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter any" data-age="adults" data-type="games" data-place="anywhere">
+      <h2>Grown-ups&#39; game night</h2>
+      <p class="idea-how">Cards or a board game after the kids are asleep.</p>
+      <p class="idea-when">Second Friday in January<span class="idea-tags"> · Games · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=grown-ups-game-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="adults family" data-type="crafts" data-place="anywhere">
+      <h2>Last year in ten pictures</h2>
+      <p class="idea-how">Each pick ten favorite moments from last year and tell the story behind them.</p>
+      <p class="idea-when">Second Sunday in January<span class="idea-tags"> · Crafts · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=last-year-in-ten-pictures">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="adults grand" data-type="outdoors" data-place="anywhere">
+      <h2>Sunset walk, phones away</h2>
+      <p class="idea-how">Walk the same path at sunset. Phones stay home.</p>
+      <p class="idea-when">Third Wednesday in June<span class="idea-tags"> · Outdoors · Adults &amp; couples</span></p>
+      <a class="btn" href="/calendar?idea=sunset-walk-phones-away">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="grand big teens" data-type="dinner" data-place="anywhere">
+      <h2>Grandparent recipe day</h2>
+      <p class="idea-how">Cook a family recipe with a grandparent and write it down together.</p>
+      <p class="idea-when">Second Saturday in November<span class="idea-tags"> · Dinner · Grandparents</span></p>
+      <a class="btn" href="/calendar?idea=grandparent-recipe-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="grand little big" data-type="books" data-place="anywhere">
+      <h2>When you were little</h2>
+      <p class="idea-how">Ask a grandparent one question about their childhood. Write down the answer.</p>
+      <p class="idea-when">First Sunday in April<span class="idea-tags"> · Books &amp; stories · Grandparents</span></p>
+      <a class="btn" href="/calendar?idea=when-you-were-little">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="grand little big" data-type="music" data-place="anywhere">
+      <h2>Old-songs sing-along</h2>
+      <p class="idea-how">Grandparents teach the songs they grew up with.</p>
+      <p class="idea-when">Fourth Sunday in March<span class="idea-tags"> · Music · Grandparents</span></p>
+      <a class="btn" href="/calendar?idea=old-songs-sing-along">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="grand big" data-type="outdoors" data-place="country beach">
+      <h2>Fishing with a grandparent</h2>
+      <p class="idea-how">A morning at the same pond or pier with a grandparent.</p>
+      <p class="idea-when">Third Saturday in June<span class="idea-tags"> · Outdoors · Grandparents</span></p>
+      <a class="btn" href="/calendar?idea=fishing-with-a-grandparent">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter any" data-age="grand big teens" data-type="games" data-place="anywhere">
+      <h2>Grandparents&#39; card game</h2>
+      <p class="idea-how">Learn the card game your grandparents played as kids.</p>
+      <p class="idea-when">Third Sunday in January<span class="idea-tags"> · Games · Grandparents</span></p>
+      <a class="btn" href="/calendar?idea=grandparents-card-game">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big grand" data-type="crafts giving" data-place="anywhere">
+      <h2>Letters to grandparents</h2>
+      <p class="idea-how">Kids mail a handwritten letter and a drawing.</p>
+      <p class="idea-when">Second Tuesday in October<span class="idea-tags"> · Crafts · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=letters-to-grandparents">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="grand little" data-type="outdoors" data-place="country anywhere">
+      <h2>Plant one thing together</h2>
+      <p class="idea-how">Plant one flower or vegetable with a grandparent. Check on it every visit.</p>
+      <p class="idea-when">Fourth Saturday in April<span class="idea-tags"> · Outdoors · Grandparents</span></p>
+      <a class="btn" href="/calendar?idea=plant-one-thing-together">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="grand family" data-type="movies" data-place="anywhere">
+      <h2>Grandparent movie pick</h2>
+      <p class="idea-how">Grandparents pick a movie from their childhood. Everyone watches.</p>
+      <p class="idea-when">Second Sunday in December<span class="idea-tags"> · Movies · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=grandparent-movie-pick">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="grand teens adults" data-type="lunch restaurants" data-place="anywhere">
+      <h2>Lunch out with a grandparent</h2>
+      <p class="idea-how">Take a grandparent to their favorite lunch spot.</p>
+      <p class="idea-when">Third Wednesday in September<span class="idea-tags"> · Lunch · Grandparents</span></p>
+      <a class="btn" href="/calendar?idea=lunch-out-with-a-grandparent">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="little big family" data-type="breakfast" data-place="anywhere">
+      <h2>Waffle bar Saturday</h2>
+      <p class="idea-how">Set out toppings. Everyone builds their own waffle.</p>
+      <p class="idea-when">First Saturday in March<span class="idea-tags"> · Breakfast · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=waffle-bar-saturday">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big family" data-type="breakfast giving" data-place="anywhere">
+      <h2>Muffins for a neighbor</h2>
+      <p class="idea-how">Bake muffins and leave a few on a neighbor&#39;s porch.</p>
+      <p class="idea-when">Second Saturday in September<span class="idea-tags"> · Breakfast · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=muffins-for-a-neighbor">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="family grand" data-type="breakfast restaurants" data-place="city country">
+      <h2>Same diner, same order</h2>
+      <p class="idea-how">Go to the same diner every year and order the usual.</p>
+      <p class="idea-when">Fourth Sunday in February<span class="idea-tags"> · Breakfast · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=same-diner-same-order">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big" data-type="breakfast" data-place="anywhere">
+      <h2>Pajama donut run</h2>
+      <p class="idea-how">Drive to get donuts while still in pajamas.</p>
+      <p class="idea-when">Third Saturday in January<span class="idea-tags"> · Breakfast · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=pajama-donut-run">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big teens" data-type="breakfast" data-place="warm anywhere">
+      <h2>Silly smoothie morning</h2>
+      <p class="idea-how">Everyone invents a smoothie and gives it a silly name.</p>
+      <p class="idea-when">Fourth Saturday in June<span class="idea-tags"> · Breakfast · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=silly-smoothie-morning">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family" data-type="breakfast outdoors" data-place="beach">
+      <h2>Beach sunrise breakfast</h2>
+      <p class="idea-how">Pack breakfast sandwiches and eat on the sand at sunrise.</p>
+      <p class="idea-when">Second Sunday in August<span class="idea-tags"> · Breakfast · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=beach-sunrise-breakfast">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big family" data-type="breakfast" data-place="snowy">
+      <h2>Snow-day cinnamon rolls</h2>
+      <p class="idea-how">Bake cinnamon rolls the first morning school is called off.</p>
+      <p class="idea-when">First Saturday in February<span class="idea-tags"> · Breakfast · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=snow-day-cinnamon-rolls">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big" data-type="breakfast giving" data-place="anywhere">
+      <h2>Breakfast in bed day</h2>
+      <p class="idea-how">Kids bring a grown-up breakfast in bed. Crumbs allowed.</p>
+      <p class="idea-when">Second Sunday in November<span class="idea-tags"> · Breakfast · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=breakfast-in-bed-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big" data-type="lunch" data-place="snowy anywhere">
+      <h2>Living-room picnic</h2>
+      <p class="idea-how">Too cold out? Spread a blanket on the floor and picnic there.</p>
+      <p class="idea-when">Third Saturday in February<span class="idea-tags"> · Lunch · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=living-room-picnic">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="big teens family" data-type="lunch" data-place="anywhere">
+      <h2>Lunchbox swap</h2>
+      <p class="idea-how">Pack each other&#39;s lunch. Add a note.</p>
+      <p class="idea-when">Fourth Monday in August<span class="idea-tags"> · Lunch · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=lunchbox-swap">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="teens family" data-type="lunch restaurants" data-place="city">
+      <h2>Food truck Saturday</h2>
+      <p class="idea-how">Try a food truck none of you have tried.</p>
+      <p class="idea-when">Second Saturday in May<span class="idea-tags"> · Lunch · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=food-truck-saturday">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family grand" data-type="lunch outdoors" data-place="anywhere">
+      <h2>Same park, same tree</h2>
+      <p class="idea-how">Picnic under the same tree every year. Sandwiches and lemonade.</p>
+      <p class="idea-when">First Sunday in June<span class="idea-tags"> · Lunch · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=same-park-same-tree">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big family" data-type="lunch outdoors" data-place="snowy">
+      <h2>Sled and grilled cheese</h2>
+      <p class="idea-how">Sled all morning, then grilled cheese and tomato soup.</p>
+      <p class="idea-when">Third Sunday in February<span class="idea-tags"> · Lunch · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=sled-and-grilled-cheese">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family" data-type="lunch outdoors" data-place="city country">
+      <h2>Farmers market lunch</h2>
+      <p class="idea-how">Buy lunch at the market and eat it in the park.</p>
+      <p class="idea-when">Third Saturday in July<span class="idea-tags"> · Lunch · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=farmers-market-lunch">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="big teens family" data-type="dinner" data-place="anywhere">
+      <h2>Around-the-world dinner</h2>
+      <p class="idea-how">Spin a globe, point, and cook a dish from there.</p>
+      <p class="idea-when">Fourth Friday in March<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=around-the-world-dinner">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter any" data-age="little big family" data-type="dinner breakfast" data-place="anywhere">
+      <h2>Breakfast for dinner</h2>
+      <p class="idea-how">Pancakes and eggs at dinnertime.</p>
+      <p class="idea-when">First Tuesday in February<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=breakfast-for-dinner">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring any" data-age="little big teens family" data-type="dinner" data-place="anywhere">
+      <h2>Build-your-own taco night</h2>
+      <p class="idea-how">Set out fillings. Everyone builds their own.</p>
+      <p class="idea-when">Third Tuesday in May<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=build-your-own-taco-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="family" data-type="dinner outdoors" data-place="warm anywhere">
+      <h2>First grill-out</h2>
+      <p class="idea-how">Fire up the grill on the first warm evening of the year.</p>
+      <p class="idea-when">Fourth Saturday in May<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=first-grill-out">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big family" data-type="dinner crafts" data-place="anywhere">
+      <h2>Fancy dinner at home</h2>
+      <p class="idea-how">Dress up, cloth napkins, and a menu the kids write.</p>
+      <p class="idea-when">Third Saturday in November<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=fancy-dinner-at-home">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring any" data-age="little big teens" data-type="dinner" data-place="anywhere">
+      <h2>Make-your-own pizza night</h2>
+      <p class="idea-how">Everyone tops their own little pizza.</p>
+      <p class="idea-when">First Friday in April<span class="idea-tags"> · Dinner · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=make-your-own-pizza-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="adults family" data-type="dinner giving" data-place="snowy anywhere">
+      <h2>Soup swap</h2>
+      <p class="idea-how">Make a big pot and trade jars with friends or neighbors.</p>
+      <p class="idea-when">Fourth Sunday in November<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=soup-swap">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family" data-type="dinner" data-place="beach warm">
+      <h2>Seafood boil on newspaper</h2>
+      <p class="idea-how">Cook a seafood boil and eat it on newspaper with your hands.</p>
+      <p class="idea-when">Second Saturday in August<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=seafood-boil-on-newspaper">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="big teens family" data-type="dinner" data-place="snowy anywhere">
+      <h2>Secret-ingredient chili</h2>
+      <p class="idea-how">Everyone adds one secret ingredient to the pot. Guess them all.</p>
+      <p class="idea-when">Fourth Sunday in January<span class="idea-tags"> · Dinner · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=secret-ingredient-chili">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="big teens family adults" data-type="restaurants dinner" data-place="city">
+      <h2>New-cuisine night out</h2>
+      <p class="idea-how">Eat somewhere serving food none of you have tried.</p>
+      <p class="idea-when">Second Friday in September<span class="idea-tags"> · Restaurants · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=new-cuisine-night-out">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="big teens family" data-type="restaurants dinner" data-place="anywhere">
+      <h2>Last-day-of-school dinner</h2>
+      <p class="idea-how">Celebrate the end of the school year at a favorite spot.</p>
+      <p class="idea-when">Third Friday in June<span class="idea-tags"> · Restaurants · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=last-day-of-school-dinner">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="little big family" data-type="restaurants" data-place="anywhere">
+      <h2>First cone of the year</h2>
+      <p class="idea-how">Visit the ice cream shop the week it opens for spring.</p>
+      <p class="idea-when">Fourth Saturday in March<span class="idea-tags"> · Restaurants · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=first-cone-of-the-year">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall any" data-age="family" data-type="restaurants dinner" data-place="anywhere">
+      <h2>Our pizza place</h2>
+      <p class="idea-how">Same pizza place every year. Order the usual.</p>
+      <p class="idea-when">First Friday in November<span class="idea-tags"> · Restaurants · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=our-pizza-place">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="family grand" data-type="restaurants lunch" data-place="city">
+      <h2>Dim sum Sunday</h2>
+      <p class="idea-how">Share dim sum or small plates. Everyone picks one dish.</p>
+      <p class="idea-when">Second Sunday in March<span class="idea-tags"> · Restaurants · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=dim-sum-sunday">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family" data-type="restaurants lunch" data-place="country">
+      <h2>Road-trip diner stop</h2>
+      <p class="idea-how">Stop at the same roadside diner on a yearly drive.</p>
+      <p class="idea-when">Fourth Saturday in July<span class="idea-tags"> · Restaurants · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=road-trip-diner-stop">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="teens adults" data-type="breakfast restaurants" data-place="anywhere">
+      <h2>Parent and teen breakfast out</h2>
+      <p class="idea-how">A one-on-one breakfast out, just the two of you.</p>
+      <p class="idea-when">Second Saturday in October<span class="idea-tags"> · Breakfast · Teens</span></p>
+      <a class="btn" href="/calendar?idea=parent-and-teen-breakfast-out">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big teens family" data-type="movies outdoors" data-place="warm anywhere">
+      <h2>Backyard movie night</h2>
+      <p class="idea-how">Hang a sheet, set up a projector or a laptop, and watch outside.</p>
+      <p class="idea-when">Fourth Friday in July<span class="idea-tags"> · Movies · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=backyard-movie-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="family" data-type="movies" data-place="anywhere">
+      <h2>Our movie, every year</h2>
+      <p class="idea-how">Rewatch the same family movie every year. Quote along.</p>
+      <p class="idea-when">Fourth Friday in January<span class="idea-tags"> · Movies · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=our-movie-every-year">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big family" data-type="movies" data-place="country anywhere">
+      <h2>Drive-in night</h2>
+      <p class="idea-how">Go to a drive-in, or make cardboard cars in the living room.</p>
+      <p class="idea-when">Third Saturday in August<span class="idea-tags"> · Movies · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=drive-in-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="big teens family" data-type="movies dinner" data-place="anywhere">
+      <h2>Dinner from the movie</h2>
+      <p class="idea-how">Cook a food that shows up in the movie you watch.</p>
+      <p class="idea-when">Third Friday in January<span class="idea-tags"> · Movies · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=dinner-from-the-movie">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="teens" data-type="movies" data-place="anywhere">
+      <h2>Teen picks the movie</h2>
+      <p class="idea-how">A teen picks the movie. No grown-up vetoes, within reason.</p>
+      <p class="idea-when">Fourth Friday in September<span class="idea-tags"> · Movies · Teens</span></p>
+      <a class="btn" href="/calendar?idea=teen-picks-the-movie">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big family" data-type="movies" data-place="snowy">
+      <h2>Snowed-in double feature</h2>
+      <p class="idea-how">Two movies, a blanket fort, and cocoa.</p>
+      <p class="idea-when">Fourth Saturday in January<span class="idea-tags"> · Movies · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=snowed-in-double-feature">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="big teens family grand" data-type="games" data-place="anywhere">
+      <h2>Board game marathon</h2>
+      <p class="idea-how">Pull out every board game. Play until bedtime.</p>
+      <p class="idea-when">Third Saturday in December<span class="idea-tags"> · Games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=board-game-marathon">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big family" data-type="games outdoors" data-place="warm anywhere">
+      <h2>Backyard games day</h2>
+      <p class="idea-how">Sack races and a water-balloon toss. Homemade medals for everyone.</p>
+      <p class="idea-when">Third Saturday in August<span class="idea-tags"> · Games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=backyard-games-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="family grand" data-type="games" data-place="anywhere">
+      <h2>Puzzle weekend</h2>
+      <p class="idea-how">Start a big puzzle on Friday. Finish it by Sunday.</p>
+      <p class="idea-when">First Friday in December<span class="idea-tags"> · Games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=puzzle-weekend">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="little big" data-type="games" data-place="anywhere">
+      <h2>Treasure hunt</h2>
+      <p class="idea-how">Hide clues around the house. The last one leads to a treat.</p>
+      <p class="idea-when">Second Saturday in March<span class="idea-tags"> · Games · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=treasure-hunt">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big teens" data-type="games outdoors" data-place="snowy">
+      <h2>Snow-fort day</h2>
+      <p class="idea-how">Build a snow fort, then a gentle snowball battle.</p>
+      <p class="idea-when">Second Sunday in January<span class="idea-tags"> · Games · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=snow-fort-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring any" data-age="big teens adults grand" data-type="games" data-place="anywhere">
+      <h2>Family trivia night</h2>
+      <p class="idea-how">Everyone writes questions about the family.</p>
+      <p class="idea-when">Second Friday in April<span class="idea-tags"> · Games · Big kids</span></p>
+      <a class="btn" href="/calendar?idea=family-trivia-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="big teens adults" data-type="games" data-place="anywhere">
+      <h2>Kids teach a video game</h2>
+      <p class="idea-how">Kids teach the grown-ups their favorite game.</p>
+      <p class="idea-when">Fourth Friday in February<span class="idea-tags"> · Games · Big kids</span></p>
+      <a class="btn" href="/calendar?idea=kids-teach-a-video-game">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big family" data-type="games outdoors" data-place="beach">
+      <h2>Beach games day</h2>
+      <p class="idea-how">Frisbee, sandcastles, and a kite.</p>
+      <p class="idea-when">Third Sunday in July<span class="idea-tags"> · Games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=beach-games-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="family grand" data-type="sports" data-place="city">
+      <h2>Opening-week ballgame</h2>
+      <p class="idea-how">Go to the same local baseball game each spring. Minor league counts.</p>
+      <p class="idea-when">Third Saturday in April<span class="idea-tags"> · Sports games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=opening-week-ballgame">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="big teens family" data-type="sports" data-place="country anywhere">
+      <h2>Friday night lights</h2>
+      <p class="idea-how">Cheer at a hometown high school football game. Hot chocolate after.</p>
+      <p class="idea-when">Third Friday in September<span class="idea-tags"> · Sports games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=friday-night-lights">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="teens adults family" data-type="sports dinner" data-place="anywhere">
+      <h2>Big-game snack spread</h2>
+      <p class="idea-how">Watch your team play. Everyone brings one snack.</p>
+      <p class="idea-when">Fourth Sunday in October<span class="idea-tags"> · Sports games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=big-game-snack-spread">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="big teens family" data-type="sports outdoors" data-place="anywhere">
+      <h2>Family fun run</h2>
+      <p class="idea-how">Walk or run a local fun run together, at any pace.</p>
+      <p class="idea-when">First Saturday in June<span class="idea-tags"> · Sports games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=family-fun-run">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="big teens adults" data-type="sports outdoors" data-place="city">
+      <h2>Pickup game in the park</h2>
+      <p class="idea-how">Same park, same pickup soccer or basketball game, every year.</p>
+      <p class="idea-when">Fourth Sunday in April<span class="idea-tags"> · Sports games · Big kids</span></p>
+      <a class="btn" href="/calendar?idea=pickup-game-in-the-park">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big teens family" data-type="sports outdoors" data-place="snowy city">
+      <h2>Ice skating day</h2>
+      <p class="idea-how">Skate at a rink or a frozen pond. Cocoa after.</p>
+      <p class="idea-when">First Sunday in February<span class="idea-tags"> · Sports games · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=ice-skating-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big teens adults" data-type="sports games outdoors" data-place="warm anywhere">
+      <h2>Kids vs. grown-ups kickball</h2>
+      <p class="idea-how">Kids make the rules. Grown-ups play along.</p>
+      <p class="idea-when">Third Sunday in August<span class="idea-tags"> · Sports games · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=kids-vs-grown-ups-kickball">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big teens" data-type="sports outdoors" data-place="snowy">
+      <h2>Same sledding hill</h2>
+      <p class="idea-how">Go back to the same sledding hill every winter.</p>
+      <p class="idea-when">Third Sunday in December<span class="idea-tags"> · Sports games · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=same-sledding-hill">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="little big" data-type="music" data-place="anywhere">
+      <h2>Pots-and-pans band</h2>
+      <p class="idea-how">Pots, pans, and spoons. Write one silly family song.</p>
+      <p class="idea-when">Third Friday in March<span class="idea-tags"> · Music · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=pots-and-pans-band">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="family grand" data-type="music outdoors" data-place="city">
+      <h2>Concert in the park</h2>
+      <p class="idea-how">Find a free outdoor concert. Bring a blanket.</p>
+      <p class="idea-when">Second Friday in July<span class="idea-tags"> · Music · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=concert-in-the-park">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring any" data-age="big teens family" data-type="music" data-place="anywhere">
+      <h2>Dish-duty karaoke</h2>
+      <p class="idea-how">Sing your hearts out while doing the dishes.</p>
+      <p class="idea-when">Fourth Friday in April<span class="idea-tags"> · Music · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=dish-duty-karaoke">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="teens adults" data-type="music" data-place="anywhere">
+      <h2>Our year in songs</h2>
+      <p class="idea-how">Everyone adds three songs from their year. Play them on a drive.</p>
+      <p class="idea-when">Third Sunday in December<span class="idea-tags"> · Music · Teens</span></p>
+      <a class="btn" href="/calendar?idea=our-year-in-songs">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="teens adults" data-type="music" data-place="city">
+      <h2>Record store Saturday</h2>
+      <p class="idea-how">Each person brings home one record or song they love.</p>
+      <p class="idea-when">Third Saturday in April<span class="idea-tags"> · Music · Teens</span></p>
+      <a class="btn" href="/calendar?idea=record-store-saturday">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="little grand" data-type="music" data-place="anywhere">
+      <h2>Lullaby night</h2>
+      <p class="idea-how">Grown-ups sing the lullabies they were sung as kids.</p>
+      <p class="idea-when">Second Wednesday in March<span class="idea-tags"> · Music · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=lullaby-night">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="family" data-type="music outdoors" data-place="country">
+      <h2>Campfire sing-along</h2>
+      <p class="idea-how">Simple songs and s&#39;mores around a fire.</p>
+      <p class="idea-when">Fourth Saturday in September<span class="idea-tags"> · Music · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=campfire-sing-along">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big" data-type="outdoors" data-place="beach">
+      <h2>Tide-pool morning</h2>
+      <p class="idea-how">Look for crabs and shells at low tide. Put everything back.</p>
+      <p class="idea-when">Second Saturday in July<span class="idea-tags"> · Outdoors · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=tide-pool-morning">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="family" data-type="outdoors" data-place="country">
+      <h2>First hike of spring</h2>
+      <p class="idea-how">Same trail every spring. Take a picture at the same spot.</p>
+      <p class="idea-when">Third Sunday in March<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=first-hike-of-spring">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="teens adults" data-type="outdoors" data-place="city">
+      <h2>Rooftop sunset</h2>
+      <p class="idea-how">Watch the sunset from a rooftop or the highest park in town.</p>
+      <p class="idea-when">Fourth Friday in June<span class="idea-tags"> · Outdoors · Teens</span></p>
+      <a class="btn" href="/calendar?idea=rooftop-sunset">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="little big family" data-type="outdoors" data-place="beach country anywhere">
+      <h2>Kite day</h2>
+      <p class="idea-how">Fly kites on the first windy weekend of spring.</p>
+      <p class="idea-when">First Sunday in April<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=kite-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="little big family" data-type="outdoors" data-place="country">
+      <h2>Apple picking</h2>
+      <p class="idea-how">Pick apples, then bake something with them.</p>
+      <p class="idea-when">Fourth Sunday in September<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=apple-picking">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="big teens family" data-type="outdoors" data-place="beach warm">
+      <h2>Night swim</h2>
+      <p class="idea-how">A late swim on a hot summer night.</p>
+      <p class="idea-when">First Saturday in August<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=night-swim">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="little big" data-type="outdoors" data-place="warm">
+      <h2>Sprinkler party</h2>
+      <p class="idea-how">Turn on the sprinkler. Popsicles after.</p>
+      <p class="idea-when">Second Sunday in July<span class="idea-tags"> · Outdoors · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=sprinkler-party">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="family" data-type="outdoors" data-place="city">
+      <h2>City lights walk</h2>
+      <p class="idea-how">Walk downtown after dark to see the lights.</p>
+      <p class="idea-when">First Saturday in December<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=city-lights-walk">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big" data-type="crafts outdoors" data-place="snowy country">
+      <h2>Pinecone bird feeders</h2>
+      <p class="idea-how">Roll pinecones in seed and hang them for the birds.</p>
+      <p class="idea-when">First Sunday in December<span class="idea-tags"> · Crafts · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=pinecone-bird-feeders">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="family" data-type="crafts" data-place="anywhere">
+      <h2>Time capsule day</h2>
+      <p class="idea-how">Each person adds a note and a small thing. Open it in five years.</p>
+      <p class="idea-when">First Sunday in September<span class="idea-tags"> · Crafts · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=time-capsule-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big family" data-type="crafts" data-place="anywhere">
+      <h2>Handprint poster</h2>
+      <p class="idea-how">Trace everyone&#39;s hands on the same poster each year.</p>
+      <p class="idea-when">Fourth Sunday in February<span class="idea-tags"> · Crafts · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=handprint-poster">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big" data-type="crafts" data-place="warm">
+      <h2>No-snow snow day</h2>
+      <p class="idea-how">No snow where you live? Cut paper snowflakes and have cocoa anyway.</p>
+      <p class="idea-when">Third Saturday in January<span class="idea-tags"> · Crafts · Little kids</span></p>
+      <a class="btn" href="/calendar?idea=no-snow-snow-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="summer" data-age="big teens" data-type="crafts outdoors" data-place="warm beach">
+      <h2>Cardboard boat day</h2>
+      <p class="idea-how">Build a boat from boxes and see if it floats.</p>
+      <p class="idea-when">Fourth Sunday in July<span class="idea-tags"> · Crafts · Big kids</span></p>
+      <a class="btn" href="/calendar?idea=cardboard-boat-day">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall any" data-age="teens family" data-type="outdoors restaurants" data-place="anywhere">
+      <h2>Teen-planned day out</h2>
+      <p class="idea-how">A teen plans the day: where to go and where to eat.</p>
+      <p class="idea-when">First Saturday in September<span class="idea-tags"> · Outdoors · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=teen-planned-day-out">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="little big teens family" data-type="giving" data-place="anywhere">
+      <h2>Give-away Saturday</h2>
+      <p class="idea-how">Everyone picks toys or clothes to give to someone who needs them.</p>
+      <p class="idea-when">Fourth Saturday in March<span class="idea-tags"> · Giving · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=give-away-saturday">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="spring" data-age="big teens family" data-type="giving outdoors" data-place="city anywhere">
+      <h2>Park clean-up</h2>
+      <p class="idea-how">Bring gloves and bags. Clean up your favorite park.</p>
+      <p class="idea-when">Fourth Saturday in April<span class="idea-tags"> · Giving · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=park-clean-up">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="winter" data-age="little big family" data-type="giving" data-place="anywhere">
+      <h2>Thank-you cookie run</h2>
+      <p class="idea-how">Bake cookies for firefighters, nurses, or the mail carrier.</p>
+      <p class="idea-when">Second Saturday in December<span class="idea-tags"> · Giving · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=thank-you-cookie-run">Make it ours</a>
+    </article>
+    <article class="card idea-card" data-season="fall" data-age="family" data-type="giving" data-place="snowy">
+      <h2>Outgrown-coat drive</h2>
+      <p class="idea-how">Gather coats you&#39;ve outgrown and donate them.</p>
+      <p class="idea-when">First Saturday in November<span class="idea-tags"> · Giving · Whole family</span></p>
+      <a class="btn" href="/calendar?idea=outgrown-coat-drive">Make it ours</a>
+    </article>
     </div>
+    <section class="card share-idea" id="share-idea">
+      <h2>Share an idea</h2>
+      <p class="hint">Got a tradition another family might love? We read every one before adding it here. No names are shown.</p>
+      <form id="idea-share-form" method="post" action="/api/ideas/share">
+        <label for="share-name">What do you call it?</label>
+        <input id="share-name" name="name" type="text" required minlength="2" maxlength="80" placeholder="Pancake Saturday">
+        <label for="share-practice">How do you do it? (one line)</label>
+        <input id="share-practice" name="practice" type="text" required minlength="5" maxlength="200" placeholder="Everyone flips one pancake.">
+        <label for="share-timing">When? (optional)</label>
+        <input id="share-timing" name="timing" type="text" maxlength="80" placeholder="First Saturday in March">
+        <label for="share-season">Season</label><select id="share-season" name="season"><option value="">Choose (optional)</option><option value="winter">Winter</option><option value="spring">Spring</option><option value="summer">Summer</option><option value="fall">Fall</option><option value="any">Any time</option></select>
+        <label for="share-age">Who is it for?</label><select id="share-age" name="age"><option value="">Choose (optional)</option><option value="little">Little kids</option><option value="big">Big kids</option><option value="teens">Teens</option><option value="adults">Adults &amp; couples</option><option value="grand">Grandparents</option><option value="family">Whole family</option></select>
+        <label for="share-type">Type</label><select id="share-type" name="type"><option value="">Choose (optional)</option><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="restaurants">Restaurants</option><option value="movies">Movies</option><option value="games">Games</option><option value="sports">Sports games</option><option value="music">Music</option><option value="outdoors">Outdoors</option><option value="crafts">Crafts</option><option value="books">Books &amp; stories</option><option value="faith">Faith</option><option value="giving">Giving</option><option value="spooky">Spooky season</option></select>
+        <div class="hp" aria-hidden="true"><label for="share-website">Leave this empty</label><input id="share-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <button class="btn" type="submit">Send our idea</button>
+        <p class="error hidden" id="idea-share-error"></p>
+        <p class="ok hidden" id="idea-share-ok" role="status">Thank you! We'll read it soon.</p>
+      </form>
+    </section>
     <p class="start-own-quiet"><a href="/">Back</a></p>
     </div>
     <footer class="site-foot">

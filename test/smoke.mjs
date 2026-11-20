@@ -147,7 +147,7 @@ async function main() {
       "home meta and og description use the tagline",
       homeHtml.includes('name="description" content="Creating family traditions. It was always about the small things."') &&
         homeHtml.includes('property="og:description" content="Creating family traditions. It was always about the small things."') &&
-        homeHtml.includes('property="og:image" content="/og.png"')
+        homeHtml.includes('property="og:image" content="https://recurday.bgarofalo1.workers.dev/og.png"')
     );
 
 
@@ -160,6 +160,32 @@ async function main() {
     const ideasApi = await fetch(`${base}/api/ideas`);
     const ideasBody = await ideasApi.json();
     check("ideas api is a static list", ideasApi.ok && Array.isArray(ideasBody.ideas) && ideasBody.ideas.length >= 9 && ideasBody.ideas.every((idea) => idea.slug && idea.name && idea.practice && idea.timing));
+    check("ideas page has filter chips, tags, and a share form", ideasHtml.includes('id="idea-filters" hidden') && ideasHtml.includes('data-filter="season"') && ideasHtml.includes('data-filter="place"') && /data-type="[^"]*spooky"/.test(ideasHtml) && ideasHtml.includes('action="/api/ideas/share"'));
+    check("ideas has 100+ ideas", ideasBody.ideas.length >= 100 && ideasBody.ideas.every((idea) => idea.seasons && idea.ages && idea.types && idea.places));
+    const ideaShareRes = await fetch(`${base}/api/ideas/share`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ name: "Smoke-test pancakes", practice: "Everyone flips one pancake.", timing: "First Saturday in March", type: "breakfast" }),
+    });
+    const ideaShareBody = await ideaShareRes.json();
+    check("sharing an idea thanks you", ideaShareRes.ok && ideaShareBody.ok === true && /Thank you/.test(ideaShareBody.message));
+    const honeyRes = await fetch(`${base}/api/ideas/share`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ name: "Smoke-test honeypot", practice: "This should not be saved.", website: "bot" }).toString(),
+    });
+    check("honeypot share gets a thank-you page", honeyRes.ok && (await honeyRes.text()).includes("Thank you!"));
+    const badShare = await fetch(`${base}/api/ideas/share`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "x", practice: "" }) });
+    check("empty shared idea is refused", badShare.status === 400);
+    const queue = await run(wrangler, ["d1", "execute", "recurday", "--local", "--persist-to", persist, "--json", "--command", "SELECT name, status FROM idea_submissions"], { cwd: root, env: { ...process.env, CLOUDFLARE_API_TOKEN: "", CLOUDFLARE_ACCOUNT_ID: "" } });
+    const queueRows = JSON.parse(queue.out)[0]?.results || [];
+    check("shared idea waits in the review queue, honeypot saved nothing", queueRows.length === 1 && queueRows[0].name === "Smoke-test pancakes" && queueRows[0].status === "pending");
+    const ideasAgain = await (await fetch(`${base}/ideas`)).text();
+    check("shared idea is not shown publicly", !ideasAgain.includes("Smoke-test pancakes") && !JSON.stringify(await (await fetch(`${base}/api/ideas`)).json()).includes("Smoke-test"));
+    const ogHome = homeHtml;
+    check("home share card tags use an absolute image", ogHome.includes('property="og:image" content="https://') && ogHome.includes('name="twitter:image" content="https://') && ogHome.includes('property="og:image:width" content="1200"'));
+    check("ideas share card tags use an absolute image", /property="og:image" content="https?:\/\/[^"]+\/og\.png"/.test(ideasHtml) && ideasHtml.includes('name="twitter:card" content="summary_large_image"'));
+    check("buttons are not solid red", !(await (await fetch(`${base}/styles.css`)).text()).includes("linear-gradient(var(--clay), var(--clay))"));
 
     const privacy = await fetch(`${base}/privacy`);
     const privacyHtml = await privacy.text();
@@ -332,12 +358,13 @@ async function main() {
         homeHtml.includes('name="apple-mobile-web-app-title" content="Recurday"') &&
         homeHtml.includes("/app.js")
     );
-    check("home still uses the generic share image", homeHtml.includes('property="og:image" content="/og.png"'));
+    check("home still uses the generic share image", homeHtml.includes('property="og:image" content="https://recurday.bgarofalo1.workers.dev/og.png"'));
 
 
     const robots = await fetch(`${base}/robots.txt`);
     const robotsTxt = await robots.text();
-    check("robots.txt disallows all", robots.ok && /Disallow:\s*\//.test(robotsTxt));
+    check("robots.txt disallows all", robots.ok && /Disallow:\s*\//.test(robotsTxt) && /User-agent: \*\nDisallow: \/\s*$/.test(robotsTxt));
+    check("robots.txt lets link previews see only public pages and the share card", robotsTxt.includes("Allow: /og.png") && !/Allow: \/(t|a|s|f|media|cal|calendar|family|api)(\/|\s)/.test(robotsTxt));
 
     const missing = await fetch(`${base}/api/traditions`);
     check("no public tradition index", missing.status === 404);

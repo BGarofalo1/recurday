@@ -2,7 +2,7 @@ import { html, esc, pageShell, familyNav, originOf, TAGLINE, TAGLINE_SUPPORT } f
 import { familyFromRequest } from "./family.js";
 import { renderIdeasBody } from "./ideas.js";
 
-const UPDATED = "November 17, 2026";
+const UPDATED = "November 20, 2026";
 const SOURCE = "https://github.com/BGarofalo1/recurday";
 
 function legalPage(request, family, { title, description, body }) {
@@ -28,6 +28,8 @@ export async function privacyPage(request, env) {
       <p>We keep your family name, a hash of your passcode (not the passcode itself), the names and notes of your traditions, the photos you add, and the private links you share. We do not ask for an email, a phone number, or a personal account. Everyone at home uses the same family name and passcode.</p>
       <h2>Who can see a photo</h2>
       <p>Photos stay private to your family when you are logged in, and to people who have a link you sent. A family link can also add photos, so treat it like a house key. A pass-it-on invite hides photos until the other family accepts, and they cannot add photos to yours. Link previews use a generic picture, never your photos. There is no public list of families or traditions.</p>
+      <h2>Shared ideas</h2>
+      <p>If you use Share an idea, we keep only the words you send (a name, one line on how, and any tags you pick). We do not keep who sent it. It is not shown to anyone until a person reads it, and it may be added to Ideas in our own words, without your name.</p>
       <h2>No ads, no selling, no tracking</h2>
       <p>Recurday does not show ads, does not sell your data, and does not use analytics or tracking pixels. The only cookie is a sign-in cookie, so your family can stay logged in (about 180 days). It is httpOnly, which means other websites cannot read it.</p>
       <h2>Where it lives</h2>

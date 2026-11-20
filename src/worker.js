@@ -7,6 +7,7 @@ import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyE
 import { coverUrls } from "./cover.js";
 import { saveHouseholdToken, rotateHouseholdToken, familyLinkUrl } from "./links.js";
 import { IDEAS } from "./ideas.js";
+import { shareIdea } from "./submissions.js";
 import { privacyPage, termsPage, aboutPage, notFoundPage, ideasPage, busyPage } from "./pages.js";
 import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_IP_LIMIT } from "./limits.js";
 
@@ -129,6 +130,7 @@ function wantsHtml(request) {
 async function api(request, env, url) {
   const path = url.pathname;
   if (request.method === "GET" && path === "/api/ideas") return json({ ideas: IDEAS });
+  if (request.method === "POST" && path === "/api/ideas/share") return shareIdea(request, env);
   if (request.method === "POST" && path === "/api/traditions") return createTradition(request, env);
   if (request.method === "GET" && path === "/api/tradition") return traditionJson(request, env, url);
   if (request.method === "POST" && path === "/api/days") return upsertDay(request, env);

@@ -19,7 +19,8 @@ That idea stays in this file. The app itself just talks about giving, keeping, a
 ## What it does
 
 - Keep a shared family calendar as the home of your traditions. Each one can fall on a fixed date or on something like the second Saturday in December (Grinch Movie Night), and it comes back every year. A short note might read: “Everyone brings something green. No green, no screen.”
-- Browse **Ideas** — a quiet list of traditions a family can borrow and make their own. There are no likes, counts, rankings, or names. Tap **Make it ours** to start with that name, how-to, and date.
+- Browse **Ideas** — a quiet list of about 130 traditions a family can borrow and make their own, for little kids through grandparents: breakfasts, dinners, restaurants, movies, games, sports games, music, outdoors, crafts, giving, faith and gratitude, and a spooky October. Filter by season, age, type, and place (snowy, warm, city, country, beach). There are no likes, counts, rankings, or names. Tap **Make it ours** to start with that name, how-to, and date.
+- **Share an idea** from the bottom of Ideas. It goes to a private review queue, never straight onto the page.
 - Set up one family login (a family name and one shared passcode) so everyone in the house can open the calendar. No email, and no individual accounts. You can claim an older private link into that login.
 - Tap **Text this to family**. The message is short and human, like: “Grinch Movie Night is coming up. It was always about the small things. [link]”. Recurday uses the phone's share sheet when it can, or opens a text message if it cannot. The person who gets the link sees the tradition right away — the cover, the name, the date, a few photos, and the tagline — with no sign-in.
 - Add photos for that year (shrunk on the phone, about 2 MB each). Photos only — it's about staying in the moment.
@@ -39,6 +40,24 @@ Recurday is built so families can share a practice without slipping into rivalry
 - Link previews use a generic image, never a family's photos
 - A share is an invitation you can stop. Another family gets the practice, not your media
 - The family passcode is stored as a slow hash (PBKDF2). Sessions are httpOnly cookies. Changing the passcode signs out other devices. Logins and uploads are rate-limited. Photos are limited to about 2 MB each.
+
+## Shared ideas
+
+The **Share an idea** form on `/ideas` posts to `POST /api/ideas/share`, which saves a row in the D1 table `idea_submissions` (migration `0006_idea_submissions.sql`) with `status = 'pending'`. Nothing in that table is ever served publicly. The form has a hidden honeypot field, one-line length limits (name 80, how-to 200, when 80 characters), refuses links, is rate-limited per internet address (10 an hour, via the same `login_attempts` table as other limits), and stops accepting new ones when 2,000 are pending. No family, login, or internet address is stored with a submission.
+
+To review the queue (needs your own Cloudflare login; nothing secret lives in this repo):
+
+```sh
+npx wrangler d1 execute recurday --remote --command \
+  "SELECT id, created_at, name, practice, timing, season, age, type FROM idea_submissions WHERE status = 'pending' ORDER BY created_at"
+```
+
+To promote one, add it to `IDEAS` in `src/ideas.js` with the `idea(...)` helper (rewrite it in Recurday's voice if needed: short name, one-line how-to, a date like `Third Saturday in October`, and age, type, and place tags), run `npm run build && npm test`, and deploy. Then mark it so it doesn't come up again:
+
+```sh
+npx wrangler d1 execute recurday --remote --command \
+  "UPDATE idea_submissions SET status = 'added' WHERE id = '<id>'"   # or 'declined'
+```
 
 ## Add it to your home screen
 

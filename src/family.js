@@ -671,7 +671,7 @@ export async function calendarPage(request, env, url) {
             <input id="delete-confirm" name="confirm" type="checkbox" value="1" required>
             Yes, delete everything for ${esc(family.name)}.
           </label>
-          <button class="btn" type="submit">Delete our family</button>
+          <button class="btn danger" type="submit">Delete our family</button>
           <p class="error hidden" id="delete-family-error"></p>
         </form>
       </div>
@@ -684,6 +684,7 @@ export async function calendarPage(request, env, url) {
     ogDescription: "A private family calendar of traditions.",
     origin,
     nav: familyNav(family),
+    brandHero: true,
     body,
   }));
 }

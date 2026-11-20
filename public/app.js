@@ -933,3 +933,93 @@ function setupYearsPlayer() {
 }
 
 setupYearsPlayer();
+
+// Ideas: filter chips by season, age, type, and place. Without JavaScript the
+// chips stay hidden and every idea shows. Matching mirrors ideaMatches() in
+// src/ideas.js: "Whole family" fits every kid age, "Anywhere" fits every place,
+// and "Any time" ideas fit every season.
+function setupIdeaFilters() {
+  const box = $("#idea-filters");
+  const list = $("#idea-list");
+  if (!box || !list) return;
+  const cards = Array.from(list.querySelectorAll(".idea-card"));
+  const empty = $("#idea-empty");
+  const reset = $("#idea-reset");
+  const picked = { season: "", age: "", type: "", place: "" };
+  box.hidden = false;
+
+  function has(card, key, value) {
+    return (card.dataset[key] || "").split(" ").includes(value);
+  }
+  function matches(card) {
+    const { season, age, type, place } = picked;
+    if (season && !has(card, "season", season) && !has(card, "season", "any")) return false;
+    if (age && !has(card, "age", age) && !(age !== "adults" && age !== "grand" && has(card, "age", "family"))) return false;
+    if (type && !has(card, "type", type)) return false;
+    if (place && !has(card, "place", place) && !has(card, "place", "anywhere")) return false;
+    return true;
+  }
+  function apply() {
+    let shown = 0;
+    for (const card of cards) {
+      const ok = matches(card);
+      card.hidden = !ok;
+      if (ok) shown += 1;
+    }
+    if (empty) empty.classList.toggle("hidden", shown > 0);
+    const any = Object.values(picked).some(Boolean);
+    if (reset) reset.classList.toggle("hidden", !any);
+    for (const chip of box.querySelectorAll(".chip")) {
+      chip.setAttribute("aria-pressed", String(picked[chip.dataset.filter] === chip.dataset.value));
+    }
+  }
+  box.addEventListener("click", (event) => {
+    const chip = event.target.closest(".chip");
+    if (chip) {
+      const key = chip.dataset.filter;
+      const value = chip.dataset.value;
+      picked[key] = picked[key] === value ? "" : value;
+      apply();
+      return;
+    }
+    if (event.target.closest("#idea-reset-btn")) {
+      for (const key of Object.keys(picked)) picked[key] = "";
+      apply();
+    }
+  });
+  apply();
+}
+
+setupIdeaFilters();
+
+const ideaShareForm = $("#idea-share-form");
+if (ideaShareForm) {
+  ideaShareForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#idea-share-error");
+    const ok = $("#idea-share-ok");
+    const btn = ideaShareForm.querySelector("button[type=submit]");
+    showError(err, "");
+    if (ok) ok.classList.add("hidden");
+    setBusy(btn, true, "Sending…");
+    try {
+      const data = Object.fromEntries(new FormData(ideaShareForm).entries());
+      const res = await fetch("/api/ideas/share", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify(data),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "That didn't work. Try again.");
+      ideaShareForm.reset();
+      if (ok) {
+        ok.textContent = body.message || "Thank you! We'll read it soon.";
+        ok.classList.remove("hidden");
+      }
+    } catch (e) {
+      showError(err, friendlyError(e));
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+}

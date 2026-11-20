@@ -37,8 +37,29 @@ export function esc(s) {
     .replace(/'/g, "&#39;");
 }
 
-export function pageShell({ title, description, ogTitle, ogDescription, origin, body, hue, nav = "" }) {
-  const wrapClass = hue ? `wrap hue-${esc(hue)}` : "wrap";
+export const OG_IMAGE_ALT = "A rainbow over the word Recurday. Creating family traditions. It was always about the small things.";
+
+/** Link-preview tags. Always the generic rainbow card, never a family photo. */
+export function shareMeta({ ogTitle, ogDescription, origin }) {
+  const image = `${origin}/og.png`;
+  return `<meta property="og:site_name" content="Recurday">
+  <meta property="og:title" content="${esc(ogTitle)}">
+  <meta property="og:description" content="${esc(ogDescription)}">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="${esc(image)}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="${esc(OG_IMAGE_ALT)}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${esc(ogTitle)}">
+  <meta name="twitter:description" content="${esc(ogDescription)}">
+  <meta name="twitter:image" content="${esc(image)}">
+  <meta name="twitter:image:alt" content="${esc(OG_IMAGE_ALT)}">`;
+}
+
+export function pageShell({ title, description, ogTitle, ogDescription, origin, body, hue, nav = "", brandHero = false }) {
+  const wrapClass = ["wrap", hue ? `hue-${esc(hue)}` : "", brandHero ? "brand-hero" : ""].filter(Boolean).join(" ");
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -48,11 +69,7 @@ export function pageShell({ title, description, ogTitle, ogDescription, origin, 
   <meta name="referrer" content="no-referrer">
   <title>${esc(title)}</title>
   <meta name="description" content="${esc(description)}">
-  <meta property="og:title" content="${esc(ogTitle)}">
-  <meta property="og:description" content="${esc(ogDescription)}">
-  <meta property="og:type" content="website">
-  <meta property="og:image" content="${esc(origin)}/og.png">
-  <meta name="twitter:card" content="summary_large_image">
+  ${shareMeta({ ogTitle, ogDescription, origin })}
   <meta name="theme-color" content="#ffffff">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -70,7 +87,7 @@ export function pageShell({ title, description, ogTitle, ogDescription, origin, 
   <a class="skip-link" href="#content">Skip to content</a>
   <div class="${wrapClass}" id="content">
     <header class="top">
-      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="36" height="22" alt="">Recurday</a>
+      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="72" height="42" alt="">Recurday</a>
       ${nav}
     </header>
     ${body}

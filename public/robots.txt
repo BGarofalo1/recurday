@@ -1,2 +1,21 @@
+# Recurday is not for search engines. Family pages stay private.
+# Link-preview bots may read the public pages and the share picture, so a
+# texted or posted Recurday link shows the rainbow card. Pages still send
+# X-Robots-Tag: noindex.
+User-agent: Twitterbot
+User-agent: facebookexternalhit
+User-agent: Facebot
+User-agent: Slackbot-LinkExpanding
+User-agent: Discordbot
+User-agent: LinkedInBot
+User-agent: WhatsApp
+User-agent: TelegramBot
+Allow: /$
+Allow: /ideas
+Allow: /about
+Allow: /og.png
+Allow: /icons/
+Disallow: /
+
 User-agent: *
 Disallow: /

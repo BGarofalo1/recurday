@@ -13,6 +13,9 @@
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif;
   --sans: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
   --rainbow: linear-gradient(90deg, #e4452e, #f07812, #efc100, #2fa24c, #2b7de1, #4b3cb8, #8d2db5);
+  /* Pastel rainbow behind dark ink text (contrast stays above 12:1). */
+  --rainbow-soft: linear-gradient(90deg, #fde7e3, #feebdb, #fdf4d2, #e1f2e3, #dfeafb, #e6e3f6, #f1e3f7);
+  --rainbow-soft-strong: linear-gradient(90deg, #fbd6cf, #fde0c7, #fbecb8, #cfe9d3, #cddff9, #d8d3f1, #e8d1f2);
   /* Darker stops so rainbow text stays readable on white. */
   --rainbow-text: linear-gradient(90deg, var(--hue-red), var(--hue-orange), var(--hue-yellow), var(--hue-green), var(--hue-blue), var(--hue-indigo), var(--hue-violet));
   --hue-red: #c2392a;
@@ -78,7 +81,7 @@ body::before {
   text-decoration: none;
 }
 
-.brand:hover { color: var(--clay-dark); }
+.brand:hover { color: var(--hue-indigo); }
 
 .logo-mark {
   display: block;
@@ -208,31 +211,43 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
   padding: 0.7rem 1rem;
   border: 2px solid transparent;
   border-radius: 0.8rem;
-  color: var(--card);
-  background: linear-gradient(var(--clay), var(--clay)) padding-box, var(--rainbow) border-box;
+  /* Calm rainbow: a soft pastel rainbow fill, a full rainbow edge, dark ink text. */
+  color: var(--ink);
+  background: var(--rainbow-soft) padding-box, var(--rainbow) border-box;
   font: inherit;
-  font-weight: 650;
+  font-weight: 700;
   text-decoration: none;
   cursor: pointer;
 }
 
-.btn:hover { background: linear-gradient(var(--clay-dark), var(--clay-dark)) padding-box, var(--rainbow) border-box; }
+.btn:hover { background: var(--rainbow-soft-strong) padding-box, var(--rainbow) border-box; }
+.btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn.secondary {
   color: var(--ink);
+  font-weight: 650;
   background: linear-gradient(var(--card), var(--card)) padding-box, var(--rainbow) border-box;
 }
 
 .btn.secondary:hover {
-  background: linear-gradient(#f5f5f5, #f5f5f5) padding-box, var(--rainbow) border-box;
+  background: linear-gradient(#f7f7f7, #f7f7f7) padding-box, var(--rainbow) border-box;
 }
 
 .btn.moss {
-  color: var(--card);
-  background: linear-gradient(var(--moss), var(--moss)) padding-box, var(--rainbow) border-box;
+  color: var(--ink);
+  background: linear-gradient(#e3f1e5, #e3f1e5) padding-box, var(--rainbow) border-box;
 }
-.btn.moss:hover { background: linear-gradient(#1e5427, #1e5427) padding-box, var(--rainbow) border-box; }
+.btn.moss:hover { background: linear-gradient(#d3e9d6, #d3e9d6) padding-box, var(--rainbow) border-box; }
+
+/* Only for "Delete our family": plain white with a dark red edge and words, never the default look. */
+.btn.danger,
+.btn.danger:hover {
+  color: var(--clay-dark);
+  background: #fff;
+  border: 2px solid var(--clay-dark);
+}
+.btn.danger:hover { background: var(--wash-red); }
 
 .actions { display: grid; gap: 0.6rem; margin-top: 0.4rem; }
 
@@ -857,7 +872,9 @@ hr.soft {
 .legal p { margin: 0 0 0.9rem; }
 .legal a { color: var(--link); }
 .legal a.btn,
-a.btn { color: var(--card); }
+a.btn { color: var(--ink); }
+.legal a.btn.danger,
+a.btn.danger { color: var(--clay-dark); }
 
 .check-label {
   display: flex;
@@ -880,4 +897,83 @@ a.btn { color: var(--card); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+
+[hidden] { display: none !important; }
+
+/* Bigger Recurday wordmark and rainbow on the landing page and the family calendar. */
+.brand {
+  font-size: 1.6rem;
+  font-weight: 600;
+  gap: 0.6rem;
+}
+.brand .logo-mark { width: 3.2rem; height: 1.87rem; }
+header.top { flex-wrap: wrap; }
+.brand-hero header.top { margin-bottom: 1.5rem; }
+.brand-hero .brand {
+  font-size: 2.75rem;
+  letter-spacing: 0.005em;
+  gap: 0.75rem;
+}
+.brand-hero .brand .logo-mark { width: 5.2rem; height: 3.03rem; }
+.brand-hero header.top .account { margin-left: auto; }
+@media (min-width: 30rem) {
+  .brand-hero .brand { font-size: 3.4rem; }
+  .brand-hero .brand .logo-mark { width: 6.2rem; height: 3.6rem; }
+}
+
+/* Ideas filters: one quiet row of chips per group, swipe sideways on a phone. */
+.share-jump { margin: -0.6rem 0 1.2rem; }
+.share-jump .btn { width: auto; margin-top: 0; min-height: 2.75rem; padding: 0.45rem 1rem; }
+.idea-filters { margin: 0 0 0.6rem; }
+.chip-row { margin: 0 0 0.55rem; }
+.chip-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 0.3rem;
+}
+.chips {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding: 0.1rem 0.1rem 0.35rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.85rem;
+  border: 1.5px solid var(--rule);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip:hover { border-color: #c9c9c9; }
+.chip[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--rainbow-soft-strong) padding-box, var(--rainbow) border-box;
+  border: 1.5px solid transparent;
+}
+.idea-reset { margin: 0.1rem 0 0; }
+.idea-tags { color: var(--muted); }
+.share-idea { margin-top: 2rem; scroll-margin-top: 1.5rem; }
+.share-idea select { margin-bottom: 0.1rem; }
+.hp {
+  position: absolute !important;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }
