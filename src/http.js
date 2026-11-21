@@ -87,7 +87,7 @@ export function pageShell({ title, description, ogTitle, ogDescription, origin, 
   <a class="skip-link" href="#content">Skip to content</a>
   <div class="${wrapClass}" id="content">
     <header class="top">
-      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="68" height="35" alt="">Recurday</a>
+      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="68" height="36" alt="">Recurday</a>
       ${nav}
     </header>
     ${body}

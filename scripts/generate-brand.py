@@ -33,7 +33,20 @@ RAINBOW = [
 PAPER = "#ffffff"
 INK = "#2a2318"
 MUTED = "#5a5146"
-HEART = "#e4452e"  # same red as the outer rainbow band
+
+# Original emoji-like house and heart palette. Drawn as our own vectors;
+# not copied from Apple, Google, Twemoji, or any other vendor artwork.
+HOUSE_WALL = "#f0d9b0"
+HOUSE_ROOF = "#d24c38"
+HOUSE_ROOF_SHADE = "#a83a2c"
+HOUSE_CHIMNEY_CAP = "#8f3228"
+HOUSE_DOOR = "#7a4a28"
+HOUSE_KNOB = "#e8c98a"
+HOUSE_WINDOW = "#8ec8ea"
+HOUSE_OUTLINE = "#4a3026"
+HEART = "#ee4a58"
+HEART_OUTLINE = "#8c2832"
+HEART_SHINE = "#ffd4d8"
 
 SERIF = Path("/usr/share/fonts/truetype/sand-box/custom/Source Serif Pro/SourceSerifPro-Bold.ttf")
 SANS = Path("/usr/share/fonts/truetype/sand-box/google/Source Sans 3/SourceSans3-VariableFont_wght.ttf")
@@ -137,33 +150,146 @@ def heart_points(cx: float, cy: float, size: float, steps: int = 96) -> list[tup
     return [(cx + (x - ox) * scale, cy + (y - oy) * scale) for x, y in raw]
 
 
-def draw_heart(draw: ImageDraw.ImageDraw, cx: float, cy: float, size: float, fill) -> None:
-    draw.polygon(heart_points(cx, cy, size), fill=fill)
+def _expand_rect(rect: tuple[float, float, float, float], o: float) -> list[float]:
+    x0, y0, x1, y1 = rect
+    return [x0 - o, y0 - o, x1 + o, y1 + o]
 
 
-def draw_house(draw: ImageDraw.ImageDraw, cx: float, baseline_y: float, size: float, fill, door_fill) -> None:
-    """A simple house standing on baseline_y, centered at cx, with total height size."""
-    body_h = size * 0.58
-    body_w = size * 0.74
-    roof_w = size * 0.96
+def _expand_poly(pts: list[tuple[float, float]], o: float) -> list[tuple[float, float]]:
+    """Grow a polygon slightly from its centroid, for a soft outline under the fill."""
+    n = len(pts)
+    mx = sum(p[0] for p in pts) / n
+    my = sum(p[1] for p in pts) / n
+    out: list[tuple[float, float]] = []
+    for x, y in pts:
+        dx, dy = x - mx, y - my
+        length = math.hypot(dx, dy) or 1
+        out.append((x + o * dx / length, y + o * dy / length))
+    return out
+
+
+def house_geom(cx: float, baseline_y: float, size: float) -> dict:
+    """Original house geometry: cream walls, terracotta roof, chimney, door, window.
+
+    size is the height from the chimney top down to the ground.
+    """
+    body_w = size * 0.80
+    body_h = size * 0.52
+    body_left = cx - body_w / 2
+    body_right = cx + body_w / 2
     body_top = baseline_y - body_h
-    draw.rectangle([cx - body_w / 2, body_top, cx + body_w / 2, baseline_y], fill=fill)
-    peak = (cx, baseline_y - size)
-    left_eave = (cx - roof_w / 2, body_top + size * 0.04)
-    right_eave = (cx + roof_w / 2, body_top + size * 0.04)
-    draw.polygon([peak, left_eave, right_eave], fill=fill)
-    door_w = max(size * 0.22, 1)
-    door_h = body_h * 0.52
-    if door_w >= 1.5 and door_h >= 2:
-        draw.rectangle([cx - door_w / 2, baseline_y - door_h, cx + door_w / 2, baseline_y], fill=door_fill)
+
+    roof_w = size * 1.16
+    eave_y = body_top + size * 0.055
+    peak = (cx, baseline_y - size * 0.90)
+    left_eave = (cx - roof_w / 2, eave_y)
+    right_eave = (cx + roof_w / 2, eave_y)
+    fascia_h = size * 0.075
+    fascia = [
+        left_eave,
+        right_eave,
+        (right_eave[0] - size * 0.025, eave_y + fascia_h),
+        (left_eave[0] + size * 0.025, eave_y + fascia_h),
+    ]
+    roof = [peak, left_eave, right_eave]
+
+    # Chimney on the right roof slope, drawn first so the roof covers its base.
+    ch_w = size * 0.17
+    t = 0.62
+    roof_x = peak[0] + (right_eave[0] - peak[0]) * t
+    roof_y = peak[1] + (right_eave[1] - peak[1]) * t
+    ch_left = roof_x - ch_w * 0.35
+    ch_right = ch_left + ch_w
+    ch_top = baseline_y - size
+    ch_bottom = roof_y + size * 0.06
+    cap_h = size * 0.07
+    cap_over = size * 0.035
+    cap = (ch_left - cap_over, ch_top, ch_right + cap_over, ch_top + cap_h)
+
+    door_w = body_w * 0.28
+    door_h = body_h * 0.62
+    door_cx = cx + body_w * 0.12
+    door = (door_cx - door_w / 2, baseline_y - door_h, door_cx + door_w / 2, baseline_y)
+    knob_r = size * 0.028
+    knob = (door_cx + door_w * 0.22, baseline_y - door_h * 0.50, knob_r)
+
+    win = body_w * 0.26
+    win_cx = cx - body_w * 0.18
+    win_cy = body_top + body_h * 0.40
+    window = (win_cx - win / 2, win_cy - win / 2, win_cx + win / 2, win_cy + win / 2)
+
+    outline_w = max(size * 0.055, 1.0)
+    return {
+        "body": (body_left, body_top, body_right, baseline_y),
+        "roof": roof,
+        "fascia": fascia,
+        "chimney": (ch_left, ch_top, ch_right, ch_bottom),
+        "cap": cap,
+        "door": door,
+        "door_radius": size * 0.045,
+        "knob": knob,
+        "window": window,
+        "win_radius": size * 0.03,
+        "outline_w": outline_w,
+        "min_x": min(left_eave[0], cap[0]) - outline_w / 2,
+        "max_x": max(right_eave[0], cap[2]) + outline_w / 2,
+        "min_y": min(ch_top, cap[1]) - outline_w / 2,
+        "max_y": baseline_y + outline_w / 2,
+    }
+
+
+def draw_heart(draw: ImageDraw.ImageDraw, cx: float, cy: float, size: float) -> None:
+    """Friendly heart with a soft outline and a small shine, to match the house."""
+    outline_w = max(size * 0.055, 1.0)
+    draw.polygon(heart_points(cx, cy, size + outline_w * 2), fill=hex_rgb(HEART_OUTLINE) + (255,))
+    draw.polygon(heart_points(cx, cy, size), fill=hex_rgb(HEART) + (255,))
+    hw, hh = size * 0.18, size * 0.14
+    if hw >= 2:
+        hx, hy = cx - size * 0.16, cy - size * 0.18
+        draw.ellipse([hx - hw / 2, hy - hh / 2, hx + hw / 2, hy + hh / 2], fill=hex_rgb(HEART_SHINE) + (255,))
+
+
+def draw_house(draw: ImageDraw.ImageDraw, cx: float, baseline_y: float, size: float) -> None:
+    """A simple full-color house, standing on baseline_y, centered at cx."""
+    g = house_geom(cx, baseline_y, size)
+    o = g["outline_w"]
+    outline = hex_rgb(HOUSE_OUTLINE) + (255,)
+    # Soft outline: paint slightly larger copies of the outer shapes first.
+    draw.rectangle(_expand_rect(g["chimney"], o), fill=outline)
+    draw.rectangle(_expand_rect(g["cap"], o), fill=outline)
+    draw.rectangle(_expand_rect(g["body"], o), fill=outline)
+    draw.polygon(_expand_poly(g["roof"], o), fill=outline)
+    draw.polygon(_expand_poly(g["fascia"], o), fill=outline)
+    # Color fills, back to front.
+    draw.rectangle(list(g["chimney"]), fill=hex_rgb(HOUSE_ROOF) + (255,))
+    draw.rectangle(list(g["cap"]), fill=hex_rgb(HOUSE_CHIMNEY_CAP) + (255,))
+    draw.rectangle(list(g["body"]), fill=hex_rgb(HOUSE_WALL) + (255,))
+    draw.polygon(g["roof"], fill=hex_rgb(HOUSE_ROOF) + (255,))
+    draw.polygon(g["fascia"], fill=hex_rgb(HOUSE_ROOF_SHADE) + (255,))
+    x0, y0, x1, y1 = g["door"]
+    r = g["door_radius"]
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=r, fill=hex_rgb(HOUSE_DOOR) + (255,))
+    # Keep the door square at the ground (only the top is rounded).
+    draw.rectangle([x0, y0 + r, x1, y1], fill=hex_rgb(HOUSE_DOOR) + (255,))
+    kx, ky, kr = g["knob"]
+    if kr >= 0.8:
+        draw.ellipse([kx - kr, ky - kr, kx + kr, ky + kr], fill=hex_rgb(HOUSE_KNOB) + (255,))
+    wx0, wy0, wx1, wy1 = g["window"]
+    draw.rounded_rectangle([wx0, wy0, wx1, wy1], radius=g["win_radius"], fill=hex_rgb(HOUSE_WINDOW) + (255,))
+    # A small glass shine, not a pane cross (a cross reads like a medical mark at this size).
+    shine = (wx1 - wx0) * 0.32
+    if shine >= 1.6:
+        sx0 = wx0 + (wx1 - wx0) * 0.14
+        sy0 = wy0 + (wy1 - wy0) * 0.14
+        draw.ellipse([sx0, sy0, sx0 + shine, sy0 + shine * 0.78], fill=(255, 255, 255, 200))
 
 
 def paint_emblems(img: Image.Image, place: dict) -> None:
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     size = place["size"]
-    draw_house(draw, place["house_cx"], place["ground"], size, hex_rgb(INK) + (255,), hex_rgb(PAPER) + (255,))
-    draw_heart(draw, place["heart_cx"], place["heart_cy"], size, hex_rgb(HEART) + (255,))
+    draw_house(draw, place["house_cx"], place["ground"], size)
+    draw_heart(draw, place["heart_cx"], place["heart_cy"], size)
     if img.mode == "RGBA":
         img.alpha_composite(overlay)
     else:
@@ -172,33 +298,73 @@ def paint_emblems(img: Image.Image, place: dict) -> None:
         img.paste(base.convert(img.mode))
 
 
+def _svg_rect(rect: tuple[float, float, float, float], fill: str, rx: float = 0) -> str:
+    x0, y0, x1, y1 = rect
+    rx_attr = f' rx="{rx:.3f}" ry="{rx:.3f}"' if rx else ""
+    return f'<rect x="{x0:.3f}" y="{y0:.3f}" width="{x1 - x0:.3f}" height="{y1 - y0:.3f}" fill="{fill}"{rx_attr}/>'
+
+
+def _svg_poly(pts: list[tuple[float, float]], fill: str) -> str:
+    d = "M " + " L ".join(f"{x:.3f} {y:.3f}" for x, y in pts) + " Z"
+    return f'<path d="{d}" fill="{fill}"/>'
+
+
 def house_svg_paths(cx: float, baseline_y: float, size: float) -> list[str]:
-    body_h = size * 0.58
-    body_w = size * 0.74
-    roof_w = size * 0.96
-    body_top = baseline_y - body_h
-    door_w = size * 0.22
-    door_h = body_h * 0.52
-    left = cx - body_w / 2
-    paths = [
-        f'<rect x="{left:.3f}" y="{body_top:.3f}" width="{body_w:.3f}" height="{body_h:.3f}" fill="{INK}"/>',
+    g = house_geom(cx, baseline_y, size)
+    o = g["outline_w"]
+    x0, y0, x1, y1 = g["door"]
+    r = g["door_radius"]
+    # Door path: rounded only at the top.
+    door_path = (
+        f'<path d="M {x0:.3f} {y1:.3f} L {x0:.3f} {y0 + r:.3f} '
+        f'A {r:.3f} {r:.3f} 0 0 1 {x0 + r:.3f} {y0:.3f} '
+        f'L {x1 - r:.3f} {y0:.3f} '
+        f'A {r:.3f} {r:.3f} 0 0 1 {x1:.3f} {y0 + r:.3f} '
+        f'L {x1:.3f} {y1:.3f} Z" fill="{HOUSE_DOOR}"/>'
+    )
+    kx, ky, kr = g["knob"]
+    wx0, wy0, wx1, wy1 = g["window"]
+    shine = (wx1 - wx0) * 0.32
+    sx0 = wx0 + (wx1 - wx0) * 0.14
+    sy0 = wy0 + (wy1 - wy0) * 0.14
+    parts = [
+        # Soft outline, same expanded shapes as the PNG.
+        _svg_rect(_expand_rect(g["chimney"], o), HOUSE_OUTLINE),
+        _svg_rect(_expand_rect(g["cap"], o), HOUSE_OUTLINE),
+        _svg_rect(_expand_rect(g["body"], o), HOUSE_OUTLINE),
+        _svg_poly(_expand_poly(g["roof"], o), HOUSE_OUTLINE),
+        _svg_poly(_expand_poly(g["fascia"], o), HOUSE_OUTLINE),
+        _svg_rect(g["chimney"], HOUSE_ROOF),
+        _svg_rect(g["cap"], HOUSE_CHIMNEY_CAP),
+        _svg_rect(g["body"], HOUSE_WALL),
+        _svg_poly(g["roof"], HOUSE_ROOF),
+        _svg_poly(g["fascia"], HOUSE_ROOF_SHADE),
+        door_path,
+        f'<circle cx="{kx:.3f}" cy="{ky:.3f}" r="{kr:.3f}" fill="{HOUSE_KNOB}"/>',
+        _svg_rect(g["window"], HOUSE_WINDOW, rx=g["win_radius"]),
         (
-            f'<path d="M {cx:.3f} {baseline_y - size:.3f} '
-            f'L {cx - roof_w / 2:.3f} {body_top + size * 0.04:.3f} '
-            f'L {cx + roof_w / 2:.3f} {body_top + size * 0.04:.3f} Z" fill="{INK}"/>'
-        ),
-        (
-            f'<rect x="{cx - door_w / 2:.3f}" y="{baseline_y - door_h:.3f}" '
-            f'width="{door_w:.3f}" height="{door_h:.3f}" fill="{PAPER}"/>'
+            f'<ellipse cx="{sx0 + shine / 2:.3f}" cy="{sy0 + shine * 0.39:.3f}" '
+            f'rx="{shine / 2:.3f}" ry="{shine * 0.39:.3f}" fill="#ffffff" fill-opacity="0.78"/>'
         ),
     ]
-    return paths
+    return parts
 
 
-def heart_svg_path(cx: float, cy: float, size: float) -> str:
-    pts = heart_points(cx, cy, size, steps=48)
-    d = "M " + " L ".join(f"{x:.3f} {y:.3f}" for x, y in pts) + " Z"
-    return f'<path d="{d}" fill="{HEART}"/>'
+def heart_svg_paths(cx: float, cy: float, size: float) -> list[str]:
+    outline_w = max(size * 0.055, 0.4)
+    def path(pts: list[tuple[float, float]], fill: str) -> str:
+        d = "M " + " L ".join(f"{x:.3f} {y:.3f}" for x, y in pts) + " Z"
+        return f'<path d="{d}" fill="{fill}"/>'
+    hw, hh = size * 0.18, size * 0.14
+    hx, hy = cx - size * 0.16, cy - size * 0.18
+    return [
+        path(heart_points(cx, cy, size + outline_w * 2, steps=48), HEART_OUTLINE),
+        path(heart_points(cx, cy, size, steps=48), HEART),
+        (
+            f'<ellipse cx="{hx:.3f}" cy="{hy:.3f}" rx="{hw / 2:.3f}" ry="{hh / 2:.3f}" '
+            f'fill="{HEART_SHINE}"/>'
+        ),
+    ]
 
 
 def fit_title_font(text: str, max_width: int, max_size: int) -> ImageFont.FreeTypeFont:
@@ -316,11 +482,12 @@ def make_mark_svg(path: Path) -> tuple[int, int]:
             f'stroke="{color}" stroke-width="{w:.3f}" stroke-linecap="butt"/>'
         )
 
-    # House and heart bounds.
-    roof_w = e_size * 0.96
-    include(place["house_cx"] - roof_w / 2, place["ground"] - e_size)
-    include(place["house_cx"] + roof_w / 2, place["ground"])
-    for x, y in heart_points(place["heart_cx"], place["heart_cy"], e_size, steps=48):
+    # House and heart bounds, including the chimney, eaves, and soft outlines.
+    hg = house_geom(place["house_cx"], place["ground"], e_size)
+    include(hg["min_x"], hg["min_y"])
+    include(hg["max_x"], hg["max_y"])
+    heart_outline = max(e_size * 0.055, 0.4)
+    for x, y in heart_points(place["heart_cx"], place["heart_cy"], e_size + heart_outline * 2, steps=48):
         include(x, y)
 
     pad = 2.0
@@ -338,7 +505,8 @@ def make_mark_svg(path: Path) -> tuple[int, int]:
     ]
     for line in house_svg_paths(place["house_cx"], place["ground"], e_size):
         parts.append("  " + line)
-    parts.append("  " + heart_svg_path(place["heart_cx"], place["heart_cy"], e_size))
+    for line in heart_svg_paths(place["heart_cx"], place["heart_cy"], e_size):
+        parts.append("  " + line)
     parts.append("</svg>")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(parts) + "\n")
