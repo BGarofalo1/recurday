@@ -1050,16 +1050,21 @@ function renderClaim(data, token, family) {
   }
   return `
     <div class="card" id="claim-card">
-      <h2>Set up your family login</h2>
-      <p>One family name and one passcode, shared with everyone at home. You'll get a calendar of the days you keep together.</p>
+      <h2>Add this to your family</h2>
+      <p>One family name and one passcode, shared with everyone at home. New here? Pick them now. Already have one? Use it.</p>
       <form id="claim-form" data-token="${esc(token)}">
         <label for="claim-name">Family name</label>
-        <input id="claim-name" name="family_name" type="text" required minlength="2" maxlength="40" autocomplete="username">
-        <label for="claim-passcode">Passcode (at least 8 characters)</label>
-        <input id="claim-passcode" name="passcode" type="password" required minlength="8" autocomplete="new-password">
-        <p class="hint">If you already have a family login, enter it here to add this tradition to your calendar.</p>
-        <button class="btn" type="submit">Set up our family login</button>
-        <p class="error hidden" id="claim-error"></p>
+        <input id="claim-name" name="name" type="text" required minlength="2" maxlength="40" autocomplete="username">
+        <label for="claim-passcode">Passcode (8+ characters)</label>
+        <input id="claim-passcode" name="passcode" type="password" required minlength="8" autocomplete="current-password">
+        <div class="confirm-new hidden">
+          <p class="confirm-q"></p>
+          <label for="claim-passcode-2">Type the passcode again</label>
+          <input id="claim-passcode-2" name="confirm_passcode" type="password" minlength="8" autocomplete="new-password">
+        </div>
+        <button class="btn" type="submit">Continue</button>
+        <button class="text-btn family-back hidden" type="button">No, let me fix the name</button>
+        <p class="error family-error hidden" id="claim-error"></p>
       </form>
     </div>`;
 }

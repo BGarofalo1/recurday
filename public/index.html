@@ -48,27 +48,21 @@
     <p class="hint hidden" id="idea-pending"></p>
 
     <div class="card" id="start">
-      <h2>Name your family</h2>
-      <form id="family-create-form">
-        <label for="create-family-name">Family name</label>
-        <input id="create-family-name" name="name" type="text" required minlength="2" maxlength="40" autocomplete="username" placeholder="The Garofalos">
-        <label for="create-passcode">Passcode</label>
-        <input id="create-passcode" name="passcode" type="password" required minlength="8" autocomplete="new-password">
-        <p class="hint">At least 8 characters. Everyone at home uses the same name and passcode.</p>
-        <button class="btn btn-lg" type="submit">Get started</button>
-        <p class="error hidden" id="family-create-error"></p>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>Log in</h2>
-      <form id="family-login-form">
-        <label for="login-family-name">Family name</label>
-        <input id="login-family-name" name="name" type="text" required minlength="2" maxlength="40" autocomplete="username">
-        <label for="login-passcode">Passcode</label>
-        <input id="login-passcode" name="passcode" type="password" required minlength="8" autocomplete="current-password">
-        <button class="btn" type="submit">Open our calendar</button>
-        <p class="error hidden" id="family-login-error"></p>
+      <h2>Your family</h2>
+      <form id="family-form">
+        <label for="family-name">Family name</label>
+        <input id="family-name" name="name" type="text" required minlength="2" maxlength="40" autocomplete="username" placeholder="The Garofalos">
+        <label for="family-passcode">Passcode</label>
+        <input id="family-passcode" name="passcode" type="password" required minlength="8" autocomplete="current-password">
+        <p class="hint">New here? Pick a name and a passcode (8+ characters). Everyone at home uses the same two.</p>
+        <div class="confirm-new hidden" id="confirm-new">
+          <p class="confirm-q" id="confirm-q"></p>
+          <label for="family-passcode-2">Type the passcode again</label>
+          <input id="family-passcode-2" name="confirm_passcode" type="password" minlength="8" autocomplete="new-password">
+        </div>
+        <button class="btn btn-lg" type="submit" id="family-continue">Continue</button>
+        <button class="text-btn family-back hidden" type="button" id="family-back">No, let me fix the name</button>
+        <p class="error family-error hidden" id="family-error"></p>
       </form>
       <details class="forgot" id="forgot">
         <summary>Forgot passcode?</summary>

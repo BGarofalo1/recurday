@@ -633,24 +633,76 @@ function showBackupScreen(code, next, familyName) {
   card.scrollIntoView({ block: "start" });
 }
 
-const familyCreate = $("#family-create-form");
-if (familyCreate) {
-  familyCreate.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const err = $("#family-create-error");
+// One screen for log in and sign up. Continue logs in when the family exists.
+// A new name gets a quick "Start a new one?" step with the passcode typed
+// twice, so a typo never quietly makes a second family.
+function setupFamilyForm(form, { endpoint, extra = () => ({}), onDone }) {
+  const nameEl = form.querySelector("[name=name], [name=family_name]");
+  const passEl = form.querySelector("[name=passcode]");
+  const box = form.querySelector(".confirm-new");
+  const question = form.querySelector(".confirm-q");
+  const again = form.querySelector("[name=confirm_passcode]");
+  const btn = form.querySelector("button[type=submit]");
+  const back = form.querySelector(".family-back");
+  const err = form.querySelector(".family-error");
+  const startLabel = btn.textContent;
+  let confirming = "";
+
+  function reset() {
+    confirming = "";
+    box.classList.add("hidden");
+    back.classList.add("hidden");
+    again.required = false;
+    again.value = "";
+    btn.textContent = startLabel;
+    nameEl.readOnly = false;
+  }
+  function askToCreate(name) {
+    confirming = name;
+    question.textContent = `No family called ${name} yet. Start a new one?`;
+    box.classList.remove("hidden");
+    back.classList.remove("hidden");
+    again.required = true;
+    nameEl.readOnly = true;
+    btn.textContent = "Start our family";
+    again.focus();
+  }
+  back.addEventListener("click", () => {
+    reset();
     showError(err, "");
-    const btn = familyCreate.querySelector("button[type=submit]");
+    nameEl.focus();
+    nameEl.select();
+  });
+  nameEl.addEventListener("input", () => { if (confirming) reset(); });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    showError(err, "");
     setBusy(btn, true, "Please wait…");
     try {
-      const res = await postJson("/api/family/create", {
-        name: $("#create-family-name").value,
-        passcode: $("#create-passcode").value,
-      });
+      const payload = { ...extra(), name: nameEl.value, passcode: passEl.value };
+      if (confirming) Object.assign(payload, { create: true, confirm_passcode: again.value });
+      const res = await postJson(endpoint, payload);
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Could not create that family login.");
-      const next = calendarPathWithIdea(body.calendar_path || "/calendar");
-      if (body.backup_code) showBackupScreen(body.backup_code, next, body.name);
-      else location.href = next;
+      setBusy(btn, false);
+      if (res.ok && body.needs_confirm) return askToCreate(body.name || nameEl.value.trim());
+      if (!res.ok) {
+        showError(err, body.error || "That didn't work. Try again.");
+        if (body.forgot) {
+          const link = document.createElement("a");
+          link.href = $("#forgot") ? "#forgot" : "/#forgot";
+          link.textContent = "Forgot passcode?";
+          link.className = "forgot-link";
+          link.addEventListener("click", () => {
+            const d = $("#forgot");
+            if (d) { d.open = true; d.querySelector("input")?.focus(); }
+          });
+          err.append(" ", link);
+        }
+        if (body.needs_confirm) again.select();
+        return;
+      }
+      onDone(body);
     } catch (e) {
       showError(err, friendlyError(e));
       setBusy(btn, false);
@@ -658,31 +710,21 @@ if (familyCreate) {
   });
 }
 
-const familyLogin = $("#family-login-form");
-if (familyLogin) {
-  familyLogin.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const err = $("#family-login-error");
-    showError(err, "");
-    const btn = familyLogin.querySelector("button[type=submit]");
-    setBusy(btn, true, "Please wait…");
-    try {
-      const res = await postJson("/api/family/login", {
-        name: $("#login-family-name").value,
-        passcode: $("#login-passcode").value,
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "That family name or passcode didn't work.");
-      location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
-    } catch (e) {
-      showError(err, friendlyError(e));
-      setBusy(btn, false);
-    }
+const familyForm = $("#family-form");
+if (familyForm) {
+  if (location.hash === "#start") $("#family-name")?.focus();
+  setupFamilyForm(familyForm, {
+    endpoint: "/api/family/continue",
+    onDone(body) {
+      const next = calendarPathWithIdea(body.calendar_path || "/calendar");
+      if (body.backup_code) showBackupScreen(body.backup_code, next, body.name);
+      else location.href = next;
+    },
   });
 }
 
 const claimForm = $("#claim-form");
-if (claimForm) {
+if (claimForm && claimForm.dataset.loggedIn === "1") {
   claimForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const err = $("#claim-error");
@@ -690,14 +732,20 @@ if (claimForm) {
     const btn = claimForm.querySelector("button[type=submit]");
     if (btn) btn.disabled = true;
     try {
-      const payload = { t: claimForm.dataset.token || tokenFromPath() };
-      if (claimForm.dataset.loggedIn !== "1") {
-        payload.name = $("#claim-name")?.value;
-        payload.passcode = $("#claim-passcode")?.value;
-      }
-      const res = await postJson("/api/family/claim", payload);
+      const res = await postJson("/api/family/claim", { t: claimForm.dataset.token || tokenFromPath() });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Could not set up that family login.");
+      if (!res.ok) throw new Error(body.error || "Could not add it to our calendar.");
+      location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
+    } catch (e) {
+      showError(err, friendlyError(e));
+      if (btn) btn.disabled = false;
+    }
+  });
+} else if (claimForm) {
+  setupFamilyForm(claimForm, {
+    endpoint: "/api/family/claim",
+    extra: () => ({ t: claimForm.dataset.token || tokenFromPath() }),
+    onDone(body) {
       const next = calendarPathWithIdea(body.calendar_path || "/calendar");
       if (body.backup_code) {
         const slot = document.createElement("div");
@@ -708,13 +756,9 @@ if (claimForm) {
       } else {
         location.href = next;
       }
-    } catch (e) {
-      showError(err, friendlyError(e));
-      if (btn) btn.disabled = false;
-    }
+    },
   });
 }
-
 
 const recoverForm = $("#family-recover-form");
 if (recoverForm) {

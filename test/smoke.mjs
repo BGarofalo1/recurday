@@ -768,7 +768,7 @@ async function main() {
     const claimToken = claimedTrad.household_path.split("/t/")[1];
     const claimPage = await fetch(`${base}${claimedTrad.household_path}`);
     const claimHtml = await claimPage.text();
-    check("existing tradition link offers family login setup", claimPage.ok && claimHtml.includes("Set up your family login"));
+    check("existing tradition link offers family login setup", claimPage.ok && claimHtml.includes("Add this to your family") && claimHtml.includes('name="confirm_passcode"'));
     const claimed = await fetch(`${base}/api/family/claim`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -977,6 +977,42 @@ async function main() {
     const art = await fetch(`${base}/sample/art/kite-day.svg`);
     const artText = await art.text();
     check("sample pictures are tiny bundled drawings", art.ok && artText.startsWith("<svg") && artText.length < 2000);
+
+    // One screen for log in and sign up (/api/family/continue).
+    const cName = "Continue Family";
+    const cNew = await post("/api/family/continue", { name: cName, passcode: "continue-pass" });
+    const cNewBody = await cNew.json();
+    check("Continue with a new name asks before creating anything", cNew.ok && cNewBody.needs_confirm === true && cNewBody.name === cName && !sessionCookieFrom(cNew) && !cNewBody.backup_code);
+    const cStillNone = await post("/api/family/login", { name: cName, passcode: "continue-pass" });
+    check("no family exists until the new one is confirmed", cStillNone.status === 401);
+    const cMismatch = await post("/api/family/continue", { name: cName, passcode: "continue-pass", create: true, confirm_passcode: "continue-typo" });
+    check("confirming needs the passcode typed the same twice", cMismatch.status === 400 && (await cMismatch.json()).needs_confirm === true);
+    const cMade = await post("/api/family/continue", { name: cName, passcode: "continue-pass", create: true, confirm_passcode: "continue-pass" });
+    const cMadeBody = await cMade.json();
+    check("confirmed new name creates the family with a backup code", cMade.status === 201 && cMadeBody.created === true && /^[0-9A-Z]{4}-/.test(cMadeBody.backup_code || "") && sessionCookieFrom(cMade));
+    const cLogin = await post("/api/family/continue", { name: "continue family", passcode: "continue-pass" });
+    const cLoginBody = await cLogin.json();
+    check("Continue with an existing name and right passcode logs in", cLogin.ok && sessionCookieFrom(cLogin) && !cLoginBody.backup_code && !cLoginBody.needs_confirm && cLoginBody.calendar_path === "/calendar");
+    const cWrong = await post("/api/family/continue", { name: cName, passcode: "not-the-pass" });
+    const cWrongBody = await cWrong.json();
+    check("wrong passcode on an existing family is an error with Forgot passcode", cWrong.status === 401 && cWrongBody.forgot === true && !cWrongBody.needs_confirm);
+    const cTypoCreate = await post("/api/family/continue", { name: cName, passcode: "other-passcode", create: true, confirm_passcode: "other-passcode" });
+    check("create: true can never take over an existing family", cTypoCreate.status === 401);
+    const cShort = await post("/api/family/continue", { name: cName, passcode: "short" });
+    check("Continue still checks passcode length", cShort.status === 400);
+    const homeOne = await (await fetch(`${base}/`)).text();
+    check("home has one family form with Continue (no separate sign-up and log-in)", homeOne.includes('id="family-form"') && homeOne.includes(">Continue<") && !homeOne.includes("family-create-form") && !homeOne.includes("family-login-form") && homeOne.includes('id="start"'));
+    const lone = await (await post("/api/traditions", { name: "Porch Breakfast", timing_note: "May 9" })).json();
+    const loneToken = lone.household_path.split("/t/")[1];
+    const clNew = await post("/api/family/claim", { t: loneToken, name: "Porch Family", passcode: "porch-passcode" });
+    const clNewBody = await clNew.json();
+    check("claiming with a new family name asks before creating", clNew.ok && clNewBody.needs_confirm === true && !sessionCookieFrom(clNew));
+    const clMade = await post("/api/family/claim", { t: loneToken, name: "Porch Family", passcode: "porch-passcode", create: true, confirm_passcode: "porch-passcode" });
+    const clMadeBody = await clMade.json();
+    check("confirmed claim creates the family, with a backup code", clMade.status === 201 && clMadeBody.backup_code && sessionCookieFrom(clMade));
+    let cLock;
+    for (let i = 0; i < 6; i++) cLock = await post("/api/family/continue", { name: cName, passcode: "still-wrong-pass" });
+    check("Continue keeps the login lockout", cLock.status === 429, `status=${cLock.status}`);
 
     const lockerName = "Lockout Family";
     let lastLock;

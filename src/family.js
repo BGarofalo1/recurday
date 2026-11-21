@@ -204,6 +204,7 @@ export async function handleFamilyApi(request, env, url) {
   if (!env.SESSION_SECRET) return json({ error: "This app isn't fully configured yet." }, 500);
   if (request.method === "POST" && path === "/api/family/create") return createFamily(request, env);
   if (request.method === "POST" && path === "/api/family/login") return loginFamily(request, env);
+  if (request.method === "POST" && path === "/api/family/continue") return continueFamily(request, env);
   if (request.method === "POST" && path === "/api/family/logout") return logoutFamily(request, env);
   if (request.method === "POST" && path === "/api/family/passcode") return changePasscode(request, env);
   if (request.method === "POST" && path === "/api/family/recover") return recoverFamily(request, env);
@@ -271,6 +272,49 @@ async function loginFamily(request, env) {
   }
   await clearFailures(env, ip, key);
   return sessionResponse(request, env, family, { ok: true, name: family.name, calendar_path: "/calendar" });
+}
+
+// One screen for log in and sign up: family name + passcode, then Continue.
+// - Name exists and passcode matches: log in.
+// - Name exists, wrong passcode: the usual error (and Forgot passcode?).
+// - Name is new: ask first ("No family called X yet. Start a new one?") and
+//   only create it when the passcode is typed a second time. That stops a typo
+//   of an existing name from quietly making a second family.
+// Telling "new name" from "wrong passcode" reveals whether a name is taken.
+// That was already true (sign-up has always said "That family name is already
+// in use"), so both answers count toward the same per-address lockout as a
+// failed login, and creating stays under the sign-up rate limit.
+async function continueFamily(request, env) {
+  const body = await readBody(request);
+  const display = validFamilyName(body.name || body.family_name);
+  const ip = clientIp(request);
+  const key = display ? nameKey(display) : nameKey(body.name || body.family_name);
+  const lockedRes = await assertNotLocked(env, ip, key);
+  if (lockedRes) return lockedRes;
+  if (!display) return json({ error: "Please enter a family name of 2 to 40 letters." }, 400);
+  if (!validPasscode(body.passcode)) return json({ error: "Passcodes are at least 8 characters." }, 400);
+  const family = await findFamilyByName(env, display);
+  if (family) {
+    if (!(await verifyPasscode(family, body.passcode))) {
+      await recordFailure(env, ip, key);
+      return json({ error: "That passcode didn't work.", forgot: true }, 401);
+    }
+    await clearFailures(env, ip, key);
+    return sessionResponse(request, env, family, { ok: true, name: family.name, calendar_path: "/calendar" });
+  }
+  const wantsCreate = body.create === true || body.create === "1" || body.create === "yes";
+  if (!wantsCreate) {
+    await recordFailure(env, ip, null);
+    return json({ ok: true, needs_confirm: true, name: display });
+  }
+  if (String(body.confirm_passcode ?? "") !== String(body.passcode)) {
+    return json({ error: "The two passcodes don't match. Try again.", needs_confirm: true, name: display }, 400);
+  }
+  const createdLimit = await assertRateLimit(env, `rl:create:ip:${ip}`, CREATE_IP_LIMIT, UPLOAD_WINDOW_MS);
+  if (createdLimit) return createdLimit;
+  const { family: made, backupCode } = await createFamilyRecord(env, display, body.passcode);
+  await clearFailures(env, ip, key);
+  return sessionResponse(request, env, made, { ok: true, created: true, name: made.name, backup_code: backupCode, calendar_path: "/calendar" }, 201);
 }
 
 async function logoutFamily(request, env) {
@@ -406,7 +450,7 @@ async function claimTradition(request, env) {
   if (existing) {
     if (!(await verifyPasscode(existing, body.passcode))) {
       await recordFailure(env, ip, key);
-      return json({ error: "That family name or passcode didn't work." }, 401);
+      return json({ error: "That passcode didn't work.", forgot: true }, 401);
     }
     await attachTradition(env, existing.id, tradition.id);
     await persistRule(env, tradition);
@@ -414,6 +458,16 @@ async function claimTradition(request, env) {
     return sessionResponse(request, env, existing, { ok: true, calendar_path: "/calendar", tradition_path: `/f/${tradition.id}` });
   }
 
+  const wantsCreate = body.create === true || body.create === "1" || body.create === "yes";
+  if (!wantsCreate) {
+    await recordFailure(env, ip, null);
+    return json({ ok: true, needs_confirm: true, name: display });
+  }
+  if (String(body.confirm_passcode ?? "") !== String(body.passcode)) {
+    return json({ error: "The two passcodes don't match. Try again.", needs_confirm: true, name: display }, 400);
+  }
+  const createdLimit = await assertRateLimit(env, `rl:create:ip:${ip}`, CREATE_IP_LIMIT, UPLOAD_WINDOW_MS);
+  if (createdLimit) return createdLimit;
   const { family, backupCode } = await createFamilyRecord(env, display, body.passcode);
   await attachTradition(env, family.id, tradition.id);
   await persistRule(env, tradition);
