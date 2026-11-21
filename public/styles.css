@@ -86,7 +86,7 @@ body::before {
 .logo-mark {
   display: block;
   width: 2.15rem;
-  height: 1.25rem;
+  height: auto;
 }
 
 header.top {
@@ -908,7 +908,7 @@ a.btn.danger { color: var(--clay-dark); }
   font-weight: 600;
   gap: 0.6rem;
 }
-.brand .logo-mark { width: 3.2rem; height: 1.87rem; }
+.brand .logo-mark { width: 3.2rem; height: auto; }
 header.top { flex-wrap: wrap; }
 .brand-hero header.top { margin-bottom: 1.5rem; }
 .brand-hero .brand {
@@ -916,11 +916,11 @@ header.top { flex-wrap: wrap; }
   letter-spacing: 0.005em;
   gap: 0.75rem;
 }
-.brand-hero .brand .logo-mark { width: 5.2rem; height: 3.03rem; }
+.brand-hero .brand .logo-mark { width: 5.2rem; height: auto; }
 .brand-hero header.top .account { margin-left: auto; }
 @media (min-width: 30rem) {
   .brand-hero .brand { font-size: 3.4rem; }
-  .brand-hero .brand .logo-mark { width: 6.2rem; height: 3.6rem; }
+  .brand-hero .brand .logo-mark { width: 6.2rem; height: auto; }
 }
 
 /* Ideas filters: one quiet row of chips per group, swipe sideways on a phone. */

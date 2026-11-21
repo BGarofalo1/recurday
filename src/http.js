@@ -37,7 +37,7 @@ export function esc(s) {
     .replace(/'/g, "&#39;");
 }
 
-export const OG_IMAGE_ALT = "A rainbow over the word Recurday. Creating family traditions. It was always about the small things.";
+export const OG_IMAGE_ALT = "A house and a heart at the two ends of a rainbow over the word Recurday. Creating family traditions. It was always about the small things.";
 
 /** Link-preview tags. Always the generic rainbow card, never a family photo. */
 export function shareMeta({ ogTitle, ogDescription, origin }) {
@@ -87,7 +87,7 @@ export function pageShell({ title, description, ogTitle, ogDescription, origin, 
   <a class="skip-link" href="#content">Skip to content</a>
   <div class="${wrapClass}" id="content">
     <header class="top">
-      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="72" height="42" alt="">Recurday</a>
+      <a class="brand" href="/"><img class="logo-mark" src="/icons/mark.svg" width="68" height="35" alt="">Recurday</a>
       ${nav}
     </header>
     ${body}
