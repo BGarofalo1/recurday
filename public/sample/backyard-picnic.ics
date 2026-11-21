@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Recurday//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Backyard Picnic Supper
+BEGIN:VEVENT
+UID:sample-backyard-picnic@recurday
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20260502
+RRULE:FREQ=YEARLY;BYMONTH=5;BYDAY=1SA
+SUMMARY:Backyard Picnic Supper
+DESCRIPTION:First Saturday in May — Dinner on a blanket. Each kid packs o
+ ne surprise snack. (An example from Recurday.)
+URL:https://recurday.bgarofalo1.workers.dev/sample
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Backyard Picnic Supper is one week away
+TRIGGER:-P6DT15H
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Backyard Picnic Supper is tomorrow
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

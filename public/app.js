@@ -558,6 +558,59 @@ async function showPendingIdea() {
 
 showPendingIdea();
 
+
+// Backup code: shown once, right after it is made. Copy, download, or screenshot.
+function showBackupCode(container, code, { next = "", label = "Open our calendar", familyName = "" } = {}) {
+  if (!container) return;
+  container.innerHTML = `
+    <p>If anyone forgets the passcode, this code lets you set a new one, so your photos are never lost.</p>
+    <p class="backup-code" aria-label="Backup code"></p>
+    <p class="hint">We show it only this once. Write it down, save it to Notes, or take a screenshot.</p>
+    <div class="backup-actions">
+      <button class="btn secondary" type="button" data-act="copy">Copy</button>
+      <button class="btn secondary" type="button" data-act="download">Download</button>
+    </div>
+    <label class="check-label"><input type="checkbox" data-act="saved"> I saved it somewhere safe.</label>
+    <button class="btn btn-lg" type="button" data-act="done" disabled>${label}</button>`;
+  container.querySelector(".backup-code").textContent = code;
+  const done = container.querySelector("[data-act=done]");
+  container.querySelector("[data-act=saved]").addEventListener("change", (e) => { done.disabled = !e.target.checked; });
+  container.querySelector("[data-act=copy]").addEventListener("click", async (e) => {
+    const ok = await copyText(code);
+    e.target.textContent = ok ? "Copied" : "Copy failed — write it down";
+  });
+  container.querySelector("[data-act=download]").addEventListener("click", () => {
+    const text = `Recurday backup code${familyName ? ` for ${familyName}` : ""}\n\n${code}\n\nIf you forget your passcode, open Recurday, tap Forgot passcode?, and enter your family name and this code.\n${location.origin}\n`;
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "recurday-backup-code.txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  done.addEventListener("click", () => {
+    if (next) location.href = next;
+    else location.reload();
+  });
+}
+
+function showBackupScreen(code, next, familyName) {
+  const card = $("#backup-shown");
+  if (!card) {
+    location.href = next;
+    return;
+  }
+  document.querySelectorAll(".home > .card, .home > details.more, .home > .quiet-links, .home > .support").forEach((el) => {
+    if (el !== card) el.classList.add("hidden");
+  });
+  card.classList.remove("hidden");
+  showBackupCode(card.querySelector(".backup-slot"), code, { next, familyName });
+  card.focus();
+  card.scrollIntoView({ block: "start" });
+}
+
 const familyCreate = $("#family-create-form");
 if (familyCreate) {
   familyCreate.addEventListener("submit", async (event) => {
@@ -573,7 +626,9 @@ if (familyCreate) {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not create that family login.");
-      location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
+      const next = calendarPathWithIdea(body.calendar_path || "/calendar");
+      if (body.backup_code) showBackupScreen(body.backup_code, next, body.name);
+      else location.href = next;
     } catch (e) {
       showError(err, friendlyError(e));
       setBusy(btn, false);
@@ -621,7 +676,16 @@ if (claimForm) {
       const res = await postJson("/api/family/claim", payload);
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "Could not set up that family login.");
-      location.href = calendarPathWithIdea(body.calendar_path || "/calendar");
+      const next = calendarPathWithIdea(body.calendar_path || "/calendar");
+      if (body.backup_code) {
+        const slot = document.createElement("div");
+        slot.className = "notice";
+        claimForm.replaceWith(slot);
+        showBackupCode(slot, body.backup_code, { next });
+        slot.scrollIntoView({ block: "start" });
+      } else {
+        location.href = next;
+      }
     } catch (e) {
       showError(err, friendlyError(e));
       if (btn) btn.disabled = false;
@@ -629,6 +693,55 @@ if (claimForm) {
   });
 }
 
+
+const recoverForm = $("#family-recover-form");
+if (recoverForm) {
+  if (location.hash === "#forgot") $("#forgot")?.setAttribute("open", "");
+  recoverForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = $("#family-recover-error");
+    showError(err, "");
+    const btn = recoverForm.querySelector("button[type=submit]");
+    setBusy(btn, true, "Please wait…");
+    try {
+      const res = await postJson("/api/family/recover", {
+        name: $("#recover-family-name").value,
+        backup_code: $("#recover-code").value,
+        new_passcode: $("#recover-passcode").value,
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "That family name or backup code didn't work.");
+      const next = body.calendar_path || "/calendar";
+      const card = $("#backup-shown");
+      if (card) card.querySelector("h2").textContent = "Passcode updated. Here is your new backup code.";
+      showBackupScreen(body.backup_code, next, body.name);
+    } catch (e) {
+      showError(err, friendlyError(e));
+      setBusy(btn, false);
+    }
+  });
+}
+
+document.querySelectorAll(".backup-form").forEach((form) => {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const err = form.querySelector("[data-role=error]");
+    showError(err, "");
+    const btn = form.querySelector("button[type=submit]");
+    setBusy(btn, true, "Please wait…");
+    try {
+      const res = await postJson("/api/family/backup-code", { passcode: form.querySelector("[name=passcode]").value });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Could not make a backup code.");
+      const result = form.parentElement.querySelector(".backup-result");
+      form.remove();
+      showBackupCode(result, body.backup_code, { label: "Done" });
+    } catch (e) {
+      showError(err, friendlyError(e));
+      setBusy(btn, false);
+    }
+  });
+});
 
 const deleteFamilyForm = $("#delete-family-form");
 if (deleteFamilyForm) {
@@ -1023,3 +1136,115 @@ if (ideaShareForm) {
     }
   });
 }
+
+// /sample: draw the example family's month and "Coming up" in the visitor's
+// own time zone. Read-only; everything comes from the page itself.
+function setupSample() {
+  const list = $("#sample-list");
+  if (!list) return;
+  const items = [...list.querySelectorAll(".sample-item")].map((el) => ({
+    el,
+    name: el.dataset.name,
+    slug: el.dataset.slug,
+    hue: [...el.classList].find((c) => c.startsWith("hue-")) || "hue-blue",
+    type: el.dataset.type,
+    month: Number(el.dataset.month),
+    day: Number(el.dataset.day),
+    nth: Number(el.dataset.nth),
+    weekday: Number(el.dataset.weekday),
+  }));
+  const dim = (y, m) => new Date(y, m, 0).getDate();
+  function dayIn(t, y) {
+    if (t.type === "fixed") return t.day <= dim(y, t.month) ? t.day : null;
+    if (t.nth === -1) {
+      const last = dim(y, t.month);
+      return last - ((new Date(y, t.month - 1, last).getDay() - t.weekday + 7) % 7);
+    }
+    const d = 1 + ((t.weekday - new Date(y, t.month - 1, 1).getDay() + 7) % 7) + (t.nth - 1) * 7;
+    return d <= dim(y, t.month) ? d : null;
+  }
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  function nextDate(t) {
+    for (let y = today.getFullYear(); y <= today.getFullYear() + 1; y++) {
+      const d = dayIn(t, y);
+      if (!d) continue;
+      const date = new Date(y, t.month - 1, d);
+      if (date >= today) return date;
+    }
+    return null;
+  }
+  const soon = items
+    .map((t) => ({ ...t, date: nextDate(t) }))
+    .filter((t) => t.date)
+    .sort((a, b) => a.date - b.date);
+  const within = soon.filter((t) => (t.date - today) / 86400000 <= 30);
+  const show = within.length ? within.slice(0, 3) : soon.slice(0, 1);
+  const words = (days) => days === 0 ? "Today" : days === 1 ? "Tomorrow" : days < 14 ? `In ${days} days` : days < 60 ? `In ${Math.round(days / 7)} weeks` : `In ${Math.round(days / 30)} months`;
+  const fmt = (d) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const soonBox = $("#sample-soon");
+  if (soonBox && show.length) {
+    const ul = soonBox.querySelector(".soon-list");
+    for (const t of show) {
+      const days = Math.round((t.date - today) / 86400000);
+      const li = document.createElement("li");
+      li.className = `soon-item ${t.hue}`;
+      li.innerHTML = `<span class="soon-link"><img class="cal-thumb" alt="" src="/sample/art/${t.slug}.svg"><span class="soon-text"><strong></strong><span class="muted"></span></span></span><a class="soon-ics" href="/sample/${t.slug}.ics">Add to calendar</a>`;
+      li.querySelector("strong").textContent = t.name;
+      li.querySelector(".muted").textContent = `${words(days)} · ${fmt(t.date)}`;
+      ul.appendChild(li);
+    }
+    soonBox.classList.remove("hidden");
+  }
+
+  const cal = $("#sample-cal");
+  if (!cal) return;
+  let year = (soon[0]?.date || today).getFullYear();
+  let month = (soon[0]?.date || today).getMonth() + 1;
+  function draw() {
+    const title = new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    cal.querySelector(".cal-title").textContent = title;
+    const grid = cal.querySelector(".cal-grid");
+    grid.setAttribute("aria-label", title);
+    grid.innerHTML = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => `<div class="cal-dow">${d}</div>`).join("");
+    const first = new Date(year, month - 1, 1).getDay();
+    const count = dim(year, month);
+    const cells = Math.ceil((first + count) / 7) * 7;
+    for (let i = 0; i < cells; i++) {
+      const day = i - first + 1;
+      const cell = document.createElement("div");
+      if (day < 1 || day > count) {
+        cell.className = "cal-day outside";
+        cell.setAttribute("aria-hidden", "true");
+      } else {
+        const isToday = year === today.getFullYear() && month === today.getMonth() + 1 && day === today.getDate();
+        cell.className = `cal-day${isToday ? " today" : ""}`;
+        const num = document.createElement("span");
+        num.className = "cal-num";
+        num.textContent = day;
+        cell.appendChild(num);
+        for (const t of items) {
+          if (t.month !== month || dayIn(t, year) !== day) continue;
+          const pill = document.createElement("span");
+          pill.className = `cal-pill ${t.hue}`;
+          pill.innerHTML = `<img class="cal-thumb" alt="" src="/sample/art/${t.slug}.svg"><span class="cal-pill-name"></span>`;
+          pill.querySelector(".cal-pill-name").textContent = t.name;
+          cell.appendChild(pill);
+        }
+      }
+      grid.appendChild(cell);
+    }
+  }
+  cal.querySelectorAll("[data-step]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      month += Number(btn.dataset.step);
+      if (month < 1) { month = 12; year -= 1; }
+      if (month > 12) { month = 1; year += 1; }
+      draw();
+    });
+  });
+  draw();
+  cal.classList.remove("hidden");
+}
+
+setupSample();

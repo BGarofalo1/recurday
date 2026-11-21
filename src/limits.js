@@ -35,3 +35,9 @@ export async function assertRateLimit(env, key, limit, windowMs) {
   }
   return null;
 }
+
+// Forgot-passcode tries. A backup code has 80 random bits, so these caps are
+// about stopping noise, not about the code being guessable.
+export const RECOVER_WINDOW_MS = 60 * 60 * 1000;
+export const RECOVER_IP_LIMIT = 20;
+export const RECOVER_NAME_LIMIT = 10;

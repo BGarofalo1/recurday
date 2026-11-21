@@ -22,6 +22,9 @@ That idea stays in this file. The app itself just talks about giving, keeping, a
 - Browse **Ideas** — a quiet list of about 130 traditions a family can borrow and make their own, for little kids through grandparents: breakfasts, dinners, restaurants, movies, games, sports games, music, outdoors, crafts, giving, faith and gratitude, and a spooky October. Filter by season, age, type, and place (snowy, warm, city, country, beach). There are no likes, counts, rankings, or names. Tap **Make it ours** to start with that name, how-to, and date.
 - **Share an idea** from the bottom of Ideas. It goes to a private review queue, never straight onto the page.
 - Set up one family login (a family name and one shared passcode) so everyone in the house can open the calendar. No email, and no individual accounts. You can claim an older private link into that login.
+- Save a **backup code** when you start (copy it, download it, or take a screenshot). It is shown once. If anyone forgets the passcode, tap **Forgot passcode?**, enter the family name and backup code, and pick a new passcode — then you get a fresh code. A lost passcode never means a lost family history. Families made before this can make a code under the calendar (it asks for the passcode).
+- **See an example** at `/sample` before signing up: a made-up family's calendar with drawings, not photos, and a **Start your own** button. No login, and nothing from real families.
+- **Coming up** at the top of the calendar shows traditions in the next 30 days. **Add to calendar** downloads a small `.ics` file that repeats every year, so the phone's own calendar reminds you a week before and the day before. No push notifications, no servers sending anything.
 - Tap **Text this to family**. The message is short and human, like: “Grinch Movie Night is coming up. It was always about the small things. [link]”. Recurday uses the phone's share sheet when it can, or opens a text message if it cannot. The person who gets the link sees the tradition right away — the cover, the name, the date, a few photos, and the tagline — with no sign-in.
 - Add photos for that year (shrunk on the phone, about 2 MB each). Photos only — it's about staying in the moment.
 - Give a tradition a cover picture — upload one, or pick a photo already kept with that day. It appears at the top of the tradition page, as a small round thumbnail on the calendar, and as the opening card of Watch the years. If there's no cover, the tradition's rainbow hue stands in. Covers stay private like other photos; link previews stay the generic image.
@@ -40,6 +43,8 @@ Recurday is built so families can share a practice without slipping into rivalry
 - Link previews use a generic image, never a family's photos
 - A share is an invitation you can stop. Another family gets the practice, not your media
 - The family passcode is stored as a slow hash (PBKDF2). Sessions are httpOnly cookies. Changing the passcode signs out other devices. Logins and uploads are rate-limited. Photos are limited to about 2 MB each.
+- Backup codes are 16 random characters (80 bits). Only a salted SHA-256 hash is stored (migration `0007_backup_code.sql`), never the code. Each code works once, wrong tries share the login lockout plus hourly caps, and using one signs out other devices.
+- There is no email recovery on purpose: Cloudflare's free plan can only send email to addresses verified in our own account, and sending to anyone else needs the paid Workers plan and an owned domain. Recurday stays free and asks for no email.
 
 ## Shared ideas
 

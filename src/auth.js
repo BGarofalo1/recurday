@@ -168,3 +168,29 @@ export async function sha256hex(value) {
 export function randomToken() {
   return base64url(crypto.getRandomValues(new Uint8Array(18)));
 }
+
+// Backup codes: 16 characters from an easy-to-read alphabet (no I, L, O, U),
+// shown once as XXXX-XXXX-XXXX-XXXX. That is 80 random bits, so a salted
+// SHA-256 is enough (no slow hash needed), and guessing is also rate-limited.
+const BACKUP_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+export const BACKUP_LEN = 16;
+
+export function newBackupCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(BACKUP_LEN));
+  let out = "";
+  for (const b of bytes) out += BACKUP_ALPHABET[b & 31];
+  return out.match(/.{4}/g).join("-");
+}
+
+/** Uppercase, drop spaces and dashes, and fix look-alike letters. */
+export function normalizeBackupCode(code) {
+  return String(code || "")
+    .toUpperCase()
+    .replace(/[^0-9A-Z]/g, "")
+    .replace(/O/g, "0")
+    .replace(/[IL]/g, "1");
+}
+
+export async function hashBackupCode(code, saltHex) {
+  return sha256hex(`${saltHex}:${normalizeBackupCode(code)}`);
+}

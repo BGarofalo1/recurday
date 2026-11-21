@@ -5,10 +5,11 @@
 //
 //   node scripts/build-static.mjs          write the files
 //   node scripts/build-static.mjs --check  fail if they are out of date
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ideasPage, aboutPage, privacyPage, termsPage } from "../src/pages.js";
+import { samplePage, SAMPLE_TRADITIONS, sampleArt, sampleIcs } from "../src/sample.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ORIGIN = process.env.RECURDAY_ORIGIN || "https://recurday.bgarofalo1.workers.dev";
@@ -17,6 +18,7 @@ const PAGES = [
   ["about.html", aboutPage, "/about"],
   ["privacy.html", privacyPage, "/privacy"],
   ["terms.html", termsPage, "/terms"],
+  ["sample.html", samplePage, "/sample"],
 ];
 const check = process.argv.includes("--check");
 let stale = 0;
@@ -37,4 +39,25 @@ for (const [file, render, route] of PAGES) {
     console.log(`wrote public/${file}`);
   }
 }
+// The example family's drawings and Add-to-calendar files (/sample).
+const extras = [];
+for (const t of SAMPLE_TRADITIONS) {
+  extras.push([`sample/art/${t.slug}.svg`, sampleArt(t)]);
+  extras.push([`sample/${t.slug}.ics`, sampleIcs(t, ORIGIN)]);
+}
+await mkdir(path.join(root, "public", "sample", "art"), { recursive: true });
+for (const [file, text] of extras) {
+  const out = path.join(root, "public", file);
+  if (check) {
+    const current = await readFile(out, "utf8").catch(() => "");
+    if (current !== text) {
+      stale += 1;
+      console.error(`  FAIL public/${file} is out of date. Run: npm run build`);
+    }
+  } else {
+    await writeFile(out, text);
+  }
+}
+if (!check) console.log(`wrote ${extras.length} files under public/sample/`);
+else if (!stale) console.log(`  ok  public/sample/ matches src`);
 if (stale) process.exit(1);

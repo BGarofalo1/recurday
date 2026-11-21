@@ -977,3 +977,61 @@ header.top { flex-wrap: wrap; }
   height: 1px;
   overflow: hidden;
 }
+
+/* Coming up: the in-app reminder strip on the calendar (and on /sample). */
+.soon { margin: 0 0 1rem; }
+.soon h2 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+.soon-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.soon-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.8rem;
+  background: var(--card);
+  box-shadow: inset 4px 0 0 var(--hue-blue);
+}
+.soon-item.hue-red { box-shadow: inset 4px 0 0 var(--hue-red); background: var(--wash-red); }
+.soon-item.hue-orange { box-shadow: inset 4px 0 0 var(--hue-orange); background: var(--wash-orange); }
+.soon-item.hue-yellow { box-shadow: inset 4px 0 0 var(--hue-yellow); background: var(--wash-yellow); }
+.soon-item.hue-green { box-shadow: inset 4px 0 0 var(--hue-green); background: var(--wash-green); }
+.soon-item.hue-blue { box-shadow: inset 4px 0 0 var(--hue-blue); background: var(--wash-blue); }
+.soon-item.hue-indigo { box-shadow: inset 4px 0 0 var(--hue-indigo); background: var(--wash-indigo); }
+.soon-item.hue-violet { box-shadow: inset 4px 0 0 var(--hue-violet); background: var(--wash-violet); }
+.soon-link { display: flex; align-items: center; gap: 0.6rem; flex: 1 1 auto; min-width: 0; color: var(--ink); text-decoration: none; }
+.soon-link .cal-thumb { width: 2.2rem; height: 2.2rem; }
+.soon-text { display: grid; min-width: 0; }
+.soon-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soon-ics { flex: 0 0 auto; font-size: 0.88rem; color: var(--link); white-space: nowrap; }
+.soon.hidden, .cal-card.hidden, .card.hidden { display: none; }
+
+/* Backup code: shown once, big and easy to copy by hand. */
+.backup-code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: clamp(1.15rem, 5.4vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  padding: 0.85rem 0.5rem;
+  margin: 0.6rem 0;
+  border-radius: 0.8rem;
+  border: 2px solid transparent;
+  background: linear-gradient(#fff, #fff) padding-box, var(--rainbow) border-box;
+  user-select: all;
+  -webkit-user-select: all;
+  word-break: break-all;
+}
+.backup-actions { display: flex; gap: 0.5rem; }
+.backup-actions .btn { flex: 1 1 0; }
+.forgot { margin-top: 0.9rem; }
+.forgot summary { cursor: pointer; color: var(--link); font-size: 0.95rem; }
+
+/* /sample: the example family. */
+.sample-note { font-size: 0.92rem; }
+.sample-list { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; gap: 0.9rem; }
+.sample-item { display: flex; gap: 0.8rem; align-items: flex-start; }
+.sample-art { width: 6.5rem; height: auto; aspect-ratio: 8 / 5; border-radius: 0.6rem; flex: 0 0 auto; display: block; }
+.sample-text h3 { margin: 0; font-size: 1.02rem; }
+.sample-text .muted { margin: 0.1rem 0 0.2rem; }
+.sample-text .practice { margin: 0 0 0.25rem; font-size: 0.92rem; }

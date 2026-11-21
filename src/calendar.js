@@ -214,18 +214,25 @@ function icsEscape(value) {
 }
 
 function icsFold(line) {
-  const bytes = new TextEncoder().encode(line);
-  if (bytes.length <= 75) return line;
-  // Fold on conservative character boundaries for short summaries.
+  // RFC 5545: lines are at most 75 octets; continuation lines start with a space.
+  const enc = new TextEncoder();
+  if (enc.encode(line).length <= 75) return line;
   const parts = [];
-  let rest = line;
-  parts.push(rest.slice(0, 74));
-  rest = rest.slice(74);
-  while (rest.length) {
-    parts.push(" " + rest.slice(0, 73));
-    rest = rest.slice(73);
+  let cur = "";
+  let size = 0;
+  for (const ch of line) {
+    const n = enc.encode(ch).length;
+    const max = parts.length ? 74 : 75;
+    if (size + n > max) {
+      parts.push(cur);
+      cur = "";
+      size = 0;
+    }
+    cur += ch;
+    size += n;
   }
-  return parts.join("\r\n");
+  parts.push(cur);
+  return parts.join("\r\n ");
 }
 
 export function buildIcs({ familyName, events, origin }) {
@@ -249,8 +256,15 @@ export function buildIcs({ familyName, events, origin }) {
     lines.push(`RRULE:${rrule}`);
     lines.push(icsFold(`SUMMARY:${icsEscape(event.name)}`));
     if (desc) lines.push(icsFold(`DESCRIPTION:${icsEscape(desc)}`));
-    if (origin) lines.push(icsFold(`URL:${origin}`));
+    if (event.url || origin) lines.push(icsFold(`URL:${event.url || origin}`));
     lines.push("TRANSP:TRANSPARENT");
+    for (const alarm of event.alarms || []) {
+      lines.push("BEGIN:VALARM");
+      lines.push("ACTION:DISPLAY");
+      lines.push(icsFold(`DESCRIPTION:${icsEscape(alarm.text || event.name)}`));
+      lines.push(`TRIGGER:${alarm.trigger}`);
+      lines.push("END:VALARM");
+    }
     lines.push("END:VEVENT");
   }
   lines.push("END:VCALENDAR");
@@ -271,4 +285,44 @@ export function bindRule(rule) {
     recur_nth: rule.nth,
     recur_weekday: rule.weekday,
   };
+}
+
+/**
+ * Phone-calendar reminders for one tradition. All-day events start at
+ * midnight, so "-PT15H" means 9 AM the day before and "-P6DT15H" means
+ * 9 AM a week before. The phone's own calendar does the reminding:
+ * no push server, nothing running on our side.
+ */
+export function reminderAlarms(name) {
+  return [
+    { trigger: "-P6DT15H", text: `${name} is one week away` },
+    { trigger: "-PT15H", text: `${name} is tomorrow` },
+  ];
+}
+
+/** Whole days from one YYYY-MM-DD to another. */
+export function daysBetween(fromIso, toIso) {
+  const a = parseIsoDate(fromIso);
+  const b = parseIsoDate(toIso);
+  if (!a || !b) return null;
+  return Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86400000);
+}
+
+export function whenWords(days) {
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days < 14) return `In ${days} days`;
+  const weeks = Math.round(days / 7);
+  return `In ${weeks} weeks`;
+}
+
+/** One tradition as a downloadable .ics, repeating yearly, with reminders. */
+export function singleIcs({ id, name, rule, timing, practice, fromIso, url }) {
+  const from = parseIsoDate(fromIso) || parseIsoDate(new Date().toISOString().slice(0, 10));
+  const dtstart = occurDate(rule, from.year) || occurDate(rule, from.year + 1) || occurDate(rule, from.year + 4);
+  if (!dtstart) return null;
+  return buildIcs({
+    familyName: name,
+    events: [{ id, name, rule, dtstart, timing, practice, url, alarms: reminderAlarms(name) }],
+  });
 }

@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Recurday//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Apple Picking Day
+BEGIN:VEVENT
+UID:sample-apple-picking@recurday
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20261004
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=1SU
+SUMMARY:Apple Picking Day
+DESCRIPTION:First Sunday in October — Pick a bag\, then bake one pie toge
+ ther that night. (An example from Recurday.)
+URL:https://recurday.bgarofalo1.workers.dev/sample
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Apple Picking Day is one week away
+TRIGGER:-P6DT15H
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Apple Picking Day is tomorrow
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

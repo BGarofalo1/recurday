@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Recurday//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Stargazing Night
+BEGIN:VEVENT
+UID:sample-stargazing@recurday
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20260918
+RRULE:FREQ=YEARLY;BYMONTH=9;BYDAY=3FR
+SUMMARY:Stargazing Night
+DESCRIPTION:Third Friday in September — Blankets on the grass. Everyone n
+ ames one star. (An example from Recurday.)
+URL:https://recurday.bgarofalo1.workers.dev/sample
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Stargazing Night is one week away
+TRIGGER:-P6DT15H
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Stargazing Night is tomorrow
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

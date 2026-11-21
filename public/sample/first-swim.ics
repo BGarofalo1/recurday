@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Recurday//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:First Swim of Summer
+BEGIN:VEVENT
+UID:sample-first-swim@recurday
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20260621
+RRULE:FREQ=YEARLY;BYMONTH=6;BYMONTHDAY=21
+SUMMARY:First Swim of Summer
+DESCRIPTION:June 21 — Longest day of the year. Cannonball contest\, judge
+ d by Grandpa. (An example from Recurday.)
+URL:https://recurday.bgarofalo1.workers.dev/sample
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:First Swim of Summer is one week away
+TRIGGER:-P6DT15H
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:First Swim of Summer is tomorrow
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

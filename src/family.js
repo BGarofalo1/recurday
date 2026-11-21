@@ -19,6 +19,11 @@ import {
   sha256hex,
   randomToken,
   hexToBytes,
+  bytesToHex,
+  newBackupCode,
+  hashBackupCode,
+  normalizeBackupCode,
+  BACKUP_LEN,
 } from "./auth.js";
 import { saveHouseholdToken } from "./links.js";
 import {
@@ -33,13 +38,16 @@ import {
   bindRule,
   describeRule,
   buildIcs,
+  singleIcs,
+  daysBetween,
+  whenWords,
 } from "./calendar.js";
 import { ZipBuilder, slugPart } from "./zip.js";
 import { json, html, esc, pageShell, familyNav, nowIso, clip, originOf, isSecureRequest, SECURITY } from "./http.js";
 import { mediaStore } from "./storage.js";
 import { PHOTO_MAX, PHOTO_TYPES, extForMime, coverUrls, isDedicatedCoverKey } from "./cover.js";
 import { ideaBySlug, ideaRecurType, nextIdeaDate } from "./ideas.js";
-import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_LIMIT, CREATE_IP_LIMIT, IP_FAIL_LIMIT } from "./limits.js";
+import { assertRateLimit, UPLOAD_LIMIT, UPLOAD_WINDOW_MS, CREATE_LIMIT, CREATE_IP_LIMIT, IP_FAIL_LIMIT, RECOVER_IP_LIMIT, RECOVER_NAME_LIMIT, RECOVER_WINDOW_MS } from "./limits.js";
 
 const EXPORT_MAX = 40 * 1024 * 1024;
 const NAME_MAX = 80;
@@ -131,6 +139,35 @@ async function mintCalendarToken(env, secret) {
   return { token, enc, hash };
 }
 
+/** Make a fresh backup code for a family. Only its salted hash is stored. */
+async function issueBackupCode(env, familyId) {
+  const code = newBackupCode();
+  const salt = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+  const hash = await hashBackupCode(code, salt);
+  await env.DB.prepare(
+    "UPDATE families SET recovery_salt = ?, recovery_hash = ?, recovery_created_at = ? WHERE id = ?"
+  ).bind(salt, hash, nowIso(), familyId).run();
+  return code;
+}
+
+async function verifyBackupCode(family, code) {
+  if (!family?.recovery_hash || !family.recovery_salt) return false;
+  if (normalizeBackupCode(code).length !== BACKUP_LEN) return false;
+  return timingSafeEqual(await hashBackupCode(code, family.recovery_salt), family.recovery_hash);
+}
+
+async function setPasscode(env, family, passcode) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await hashPasscode(passcode, salt, PBKDF2_ITERS);
+  const version = Number(family.session_version) + 1;
+  await env.DB.prepare(
+    `UPDATE families
+     SET passcode_salt = ?, passcode_hash = ?, passcode_iters = ?, session_version = ?
+     WHERE id = ?`
+  ).bind(bytesToHex(salt), hash, PBKDF2_ITERS, version, family.id).run();
+  return { ...family, session_version: version };
+}
+
 async function createFamilyRecord(env, display, passcode) {
   const secret = env.SESSION_SECRET;
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -156,7 +193,8 @@ async function createFamilyRecord(env, display, passcode) {
     family.id, family.name, family.name_key, family.passcode_salt, family.passcode_hash,
     family.passcode_iters, family.session_version, family.calendar_token_hash, family.calendar_token_enc, family.created_at
   ).run();
-  return { family, calendarToken: cal.token };
+  const backupCode = await issueBackupCode(env, family.id);
+  return { family, calendarToken: cal.token, backupCode };
 }
 
 export async function handleFamilyApi(request, env, url) {
@@ -166,6 +204,8 @@ export async function handleFamilyApi(request, env, url) {
   if (request.method === "POST" && path === "/api/family/login") return loginFamily(request, env);
   if (request.method === "POST" && path === "/api/family/logout") return logoutFamily(request, env);
   if (request.method === "POST" && path === "/api/family/passcode") return changePasscode(request, env);
+  if (request.method === "POST" && path === "/api/family/recover") return recoverFamily(request, env);
+  if (request.method === "POST" && path === "/api/family/backup-code") return newFamilyBackupCode(request, env);
   if (request.method === "POST" && path === "/api/family/claim") return claimTradition(request, env);
   if (request.method === "POST" && path === "/api/family/traditions") return createFamilyTradition(request, env);
   if (request.method === "POST" && path === "/api/family/calendar-link") return rotateCalendarLink(request, env);
@@ -197,12 +237,13 @@ async function createFamily(request, env) {
   if (createdLimit) return createdLimit;
   const existing = await findFamilyByName(env, display);
   if (existing) return json({ error: "That family name is already in use. If this is your family, log in." }, 409);
-  const { family, calendarToken } = await createFamilyRecord(env, display, body.passcode);
+  const { family, calendarToken, backupCode } = await createFamilyRecord(env, display, body.passcode);
   await clearFailures(env, ip, key);
   const origin = originOf(request);
   return sessionResponse(request, env, family, {
     ok: true,
     name: family.name,
+    backup_code: backupCode,
     calendar_path: "/calendar",
     calendar_url: `${origin}/calendar`,
     ics_path: `/cal/${calendarToken}.ics`,
@@ -255,22 +296,55 @@ async function changePasscode(request, env) {
   }
   if (!validPasscode(body.new_passcode)) return json({ error: "Please choose a new passcode of at least 8 characters." }, 400);
   if (body.new_passcode === body.current_passcode) return json({ error: "Please choose a different new passcode." }, 400);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const hash = await hashPasscode(body.new_passcode, salt, PBKDF2_ITERS);
-  const version = Number(family.session_version) + 1;
-  await env.DB.prepare(
-    `UPDATE families
-     SET passcode_salt = ?, passcode_hash = ?, passcode_iters = ?, session_version = ?
-     WHERE id = ?`
-  ).bind(
-    [...salt].map((b) => b.toString(16).padStart(2, "0")).join(""),
-    hash,
-    PBKDF2_ITERS,
-    version,
-    family.id
-  ).run();
-  const updated = { ...family, session_version: version };
+  const updated = await setPasscode(env, family, body.new_passcode);
   return sessionResponse(request, env, updated, { ok: true });
+}
+
+// Forgot passcode: family name + backup code + a new passcode.
+// Wrong tries count toward the same per-name and per-address locks as logins,
+// plus their own hourly caps, so guessing a code is hopeless.
+async function recoverFamily(request, env) {
+  const body = await readBody(request);
+  const display = validFamilyName(body.name || body.family_name);
+  const ip = clientIp(request);
+  const key = display ? nameKey(display) : nameKey(body.name || body.family_name);
+  const lockedRes = await assertNotLocked(env, ip, key);
+  if (lockedRes) return lockedRes;
+  const ipLimited = await assertRateLimit(env, `rl:recover:ip:${ip}`, RECOVER_IP_LIMIT, RECOVER_WINDOW_MS);
+  if (ipLimited) return ipLimited;
+  if (key) {
+    const nameLimited = await assertRateLimit(env, `rl:recover:name:${key}`, RECOVER_NAME_LIMIT, RECOVER_WINDOW_MS);
+    if (nameLimited) return nameLimited;
+  }
+  if (!validPasscode(body.new_passcode)) {
+    return json({ error: "Please choose a new passcode of at least 8 characters." }, 400);
+  }
+  const family = display ? await findFamilyByName(env, display) : null;
+  if (!family || !(await verifyBackupCode(family, body.backup_code))) {
+    await recordFailure(env, ip, key);
+    return json({ error: "That family name or backup code didn't work." }, 401);
+  }
+  const updated = await setPasscode(env, family, body.new_passcode);
+  const backupCode = await issueBackupCode(env, family.id);
+  await clearFailures(env, ip, key);
+  return sessionResponse(request, env, updated, { ok: true, name: family.name, backup_code: backupCode, calendar_path: "/calendar" });
+}
+
+// Logged in: make a new backup code (the old one stops working).
+// Asks for the passcode too, because a phone may stay logged in for months.
+async function newFamilyBackupCode(request, env) {
+  const family = await familyFromRequest(request, env);
+  if (!family) return json({ error: "Please log in with your family name and passcode." }, 401);
+  const body = await readBody(request);
+  const ip = clientIp(request);
+  const lockedRes = await assertNotLocked(env, ip, family.name_key);
+  if (lockedRes) return lockedRes;
+  if (!validPasscode(body.passcode) || !(await verifyPasscode(family, body.passcode))) {
+    await recordFailure(env, ip, family.name_key);
+    return json({ error: "That passcode didn't work." }, 401);
+  }
+  const backupCode = await issueBackupCode(env, family.id);
+  return json({ ok: true, backup_code: backupCode });
 }
 
 async function attachTradition(env, familyId, traditionId) {
@@ -338,11 +412,11 @@ async function claimTradition(request, env) {
     return sessionResponse(request, env, existing, { ok: true, calendar_path: "/calendar", tradition_path: `/f/${tradition.id}` });
   }
 
-  const { family } = await createFamilyRecord(env, display, body.passcode);
+  const { family, backupCode } = await createFamilyRecord(env, display, body.passcode);
   await attachTradition(env, family.id, tradition.id);
   await persistRule(env, tradition);
   await clearFailures(env, ip, key);
-  return sessionResponse(request, env, family, { ok: true, calendar_path: "/calendar", tradition_path: `/f/${tradition.id}` }, 201);
+  return sessionResponse(request, env, family, { ok: true, backup_code: backupCode, calendar_path: "/calendar", tradition_path: `/f/${tradition.id}` }, 201);
 }
 
 async function persistRule(env, tradition) {
@@ -565,6 +639,9 @@ export async function calendarPage(request, env, url) {
       .filter(Boolean);
     return { ...cell, items };
   });
+  const comingUp = upcomingFor(traditions, today, 4)
+    .map((item) => ({ ...item, days: daysBetween(today, item.date) }))
+    .filter((item) => item.days != null && item.days <= COMING_UP_DAYS);
   const upcoming = upcomingFor(traditions, today, 8).map((item) => ({
     id: item.tradition.id,
     name: item.tradition.name,
@@ -606,6 +683,9 @@ export async function calendarPage(request, env, url) {
     : `<p class="empty">Tap a day to add one.</p>`;
 
   const addCard = add ? renderAddCard(add, idea) : "";
+  const comingUpHtml = renderComingUp(comingUp);
+  const hasBackup = Boolean(family.recovery_hash);
+  const backupNudge = hasBackup ? "" : renderBackupCard({ first: true });
 
   const body = `
     <p class="eyebrow">${esc(family.name)}</p>
@@ -614,6 +694,8 @@ export async function calendarPage(request, env, url) {
       <a class="btn btn-lg" href="/calendar?year=${safeYear}&month=${safeMonth}&add=${today}">+ New tradition</a>
     </div>
     ${addCard}
+    ${comingUpHtml}
+    ${backupNudge}
     <div class="card cal-card">
       <div class="cal-nav">
         <a class="btn secondary cal-nav-btn" href="/calendar?year=${prev.year}&month=${prev.month}">Previous</a>
@@ -647,6 +729,7 @@ export async function calendarPage(request, env, url) {
           <p class="ok hidden" id="passcode-ok">Passcode updated.</p>
         </form>
       </div>
+      ${hasBackup ? renderBackupCard({ first: false }) : ""}
       <div class="card">
         <h2>Add to your phone calendar</h2>
         <p>This private link adds the days to a phone calendar. It shows names and dates, not photos.</p>
@@ -687,6 +770,46 @@ export async function calendarPage(request, env, url) {
     brandHero: true,
     body,
   }));
+}
+
+const COMING_UP_DAYS = 30;
+
+// The in-app reminder: traditions in the next 30 days, each with an
+// "Add to calendar" file so the phone itself can remind the family.
+function renderComingUp(items) {
+  if (!items.length) return "";
+  const rows = items.map(({ tradition, date, days }) => {
+    const hue = hueOf(tradition.name);
+    const cover = coverUrls(tradition);
+    const thumb = cover.hasCover
+      ? `<img class="cal-thumb" alt="" src="${esc(cover.thumb)}">`
+      : `<span class="cal-thumb fallback hue-${esc(hue)}" aria-hidden="true"></span>`;
+    return `<li class="soon-item hue-${esc(hue)}">
+        <a class="soon-link" href="/f/${esc(tradition.id)}">${thumb}<span class="soon-text"><strong>${esc(tradition.name)}</strong><span class="muted">${esc(whenWords(days))} · ${esc(date)}</span></span></a>
+        <a class="soon-ics" href="/family/ics/${esc(tradition.id)}.ics" download="${esc(slugPart(tradition.name) || "tradition")}.ics">Add to calendar</a>
+      </li>`;
+  }).join("");
+  return `<section class="soon" aria-label="Coming up">
+      <h2>Coming up</h2>
+      <ul class="soon-list">${rows}</ul>
+      <p class="hint">Add to calendar puts it in your phone's calendar, with a reminder a week before and the day before.</p>
+    </section>`;
+}
+
+function renderBackupCard({ first }) {
+  return `<div class="card backup-card" id="backup-code">
+      <h2>${first ? "Make a backup code" : "Backup code"}</h2>
+      <p>${first
+        ? "If anyone forgets the passcode, a backup code lets you set a new one, so your photos are never lost. It takes ten seconds."
+        : "Lost your backup code? Make a new one. The old one will stop working."}</p>
+      <form class="backup-form">
+        <label for="backup-passcode-${first ? "a" : "b"}">Your passcode</label>
+        <input id="backup-passcode-${first ? "a" : "b"}" name="passcode" type="password" required minlength="8" autocomplete="current-password">
+        <button class="btn${first ? "" : " secondary"}" type="submit">${first ? "Make our backup code" : "Make a new backup code"}</button>
+        <p class="error hidden" data-role="error"></p>
+      </form>
+      <div class="backup-result"></div>
+    </div>`;
 }
 
 function renderAddCard(iso, idea) {
@@ -740,6 +863,33 @@ export async function calendarFeed(request, env, url) {
       ...SECURITY,
       "content-type": "text/calendar; charset=utf-8",
       "content-disposition": `inline; filename="recurday.ics"`,
+      "cache-control": "private, no-store",
+    },
+  });
+}
+
+// One tradition as an .ics file with reminders. Logged-in family only.
+export async function traditionIcs(request, env, url) {
+  const family = await familyFromRequest(request, env);
+  if (!family) return new Response("Please log in.", { status: 401, headers: SECURITY });
+  const id = decodeURIComponent((url.pathname.split("/")[3] || "").replace(/\.ics$/i, ""));
+  const t = id ? await env.DB.prepare("SELECT * FROM traditions WHERE id = ? AND family_id = ?").bind(id, family.id).first() : null;
+  const rule = t ? ruleFromRow(t) : null;
+  if (!rule) return new Response("Not found", { status: 404, headers: SECURITY });
+  const now = new Date();
+  const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+  const body = singleIcs({
+    id: t.id, name: t.name, rule, timing: t.timing_note, practice: t.practice_note,
+    fromIso: today, url: `${originOf(request)}/f/${t.id}`,
+  });
+  if (!body) return new Response("Not found", { status: 404, headers: SECURITY });
+  const file = `${slugPart(t.name) || "tradition"}.ics`;
+  return new Response(body, {
+    status: 200,
+    headers: {
+      ...SECURITY,
+      "content-type": "text/calendar; charset=utf-8",
+      "content-disposition": `inline; filename="${file}"`,
       "cache-control": "private, no-store",
     },
   });

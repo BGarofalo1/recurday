@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Recurday//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Cocoa and Lights Walk
+BEGIN:VEVENT
+UID:sample-cocoa-lights@recurday
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20261204
+RRULE:FREQ=YEARLY;BYMONTH=12;BYDAY=1FR
+SUMMARY:Cocoa and Lights Walk
+DESCRIPTION:First Friday in December — Cocoa in travel mugs\, a slow walk
+  to see the first lights. (An example from Recurday.)
+URL:https://recurday.bgarofalo1.workers.dev/sample
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Cocoa and Lights Walk is one week away
+TRIGGER:-P6DT15H
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Cocoa and Lights Walk is tomorrow
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

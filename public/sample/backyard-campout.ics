@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Recurday//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Backyard Campout
+BEGIN:VEVENT
+UID:sample-backyard-campout@recurday
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20260808
+RRULE:FREQ=YEARLY;BYMONTH=8;BYDAY=2SA
+SUMMARY:Backyard Campout
+DESCRIPTION:Second Saturday in August — Tent in the yard\, flashlight sto
+ ries\, pancakes in the morning. (An example from Recurday.)
+URL:https://recurday.bgarofalo1.workers.dev/sample
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Backyard Campout is one week away
+TRIGGER:-P6DT15H
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Backyard Campout is tomorrow
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

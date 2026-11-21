@@ -885,6 +885,86 @@ async function main() {
     });
     check("deleted family name can be used again", reuseName.status === 201, `status=${reuseName.status}`);
 
+    // Backup code, forgot passcode, Coming up, Add to calendar, and /sample.
+    const post = (url, body, cookie = "") => fetch(`${base}${url}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify(body),
+    });
+    const recName = "Recovery Family";
+    const recMade = await post("/api/family/create", { name: recName, passcode: "first-passcode" });
+    const recBody = await recMade.json();
+    const recCookie = sessionCookieFrom(recMade);
+    check("new family gets a one-time backup code", recMade.status === 201 && /^[0-9A-HJKMNP-TV-Z]{4}(-[0-9A-HJKMNP-TV-Z]{4}){3}$/.test(recBody.backup_code || ""), JSON.stringify(recBody));
+    const recCal = await (await fetch(`${base}/calendar`, { headers: { cookie: recCookie } })).text();
+    check("calendar never shows the backup code again", !recCal.includes(recBody.backup_code) && recCal.includes("Make a new backup code") && !recCal.includes("Make our backup code"));
+    const recWrong = await post("/api/family/recover", { name: recName, backup_code: "AAAA-BBBB-CCCC-DDDD", new_passcode: "second-passcode" });
+    check("a wrong backup code is refused", recWrong.status === 401);
+    const recNoName = await post("/api/family/recover", { name: "Nobody Here", backup_code: recBody.backup_code, new_passcode: "second-passcode" });
+    check("a backup code only works with its own family", recNoName.status === 401);
+    const sloppy = recBody.backup_code.toLowerCase().replace(/-/g, " ");
+    const recOk = await post("/api/family/recover", { name: recName.toLowerCase(), backup_code: sloppy, new_passcode: "second-passcode" });
+    const recOkBody = await recOk.json();
+    const recOkCookie = sessionCookieFrom(recOk);
+    check("backup code sets a new passcode (case and dashes don't matter)", recOk.ok && recOkCookie && recOkBody.calendar_path === "/calendar", JSON.stringify(recOkBody));
+    check("a fresh backup code is issued after recovery", /^[0-9A-Z]{4}-/.test(recOkBody.backup_code || "") && recOkBody.backup_code !== recBody.backup_code);
+    const recOldPass = await post("/api/family/login", { name: recName, passcode: "first-passcode" });
+    check("old passcode stops working after recovery", recOldPass.status === 401);
+    const recNewPass = await post("/api/family/login", { name: recName, passcode: "second-passcode" });
+    check("new passcode works after recovery", recNewPass.ok);
+    const recOldSession = await fetch(`${base}/calendar`, { headers: { cookie: recCookie }, redirect: "manual" });
+    check("recovery signs out other devices", recOldSession.status === 303);
+    const recReuse = await post("/api/family/recover", { name: recName, backup_code: recBody.backup_code, new_passcode: "third-passcode" });
+    check("a used backup code can't be used again", recReuse.status === 401);
+    const regenBad = await post("/api/family/backup-code", { passcode: "first-passcode" }, recOkCookie);
+    check("making a new backup code needs the passcode", regenBad.status === 401);
+    const regen = await post("/api/family/backup-code", { passcode: "second-passcode" }, recOkCookie);
+    const regenBody = await regen.json();
+    check("family can make a new backup code", regen.ok && regenBody.backup_code && regenBody.backup_code !== recOkBody.backup_code);
+    const regenOld = await post("/api/family/recover", { name: recName, backup_code: recOkBody.backup_code, new_passcode: "third-passcode" });
+    check("making a new backup code retires the old one", regenOld.status === 401);
+    const recLogin = sessionCookieFrom(recNewPass);
+
+    const soonDate = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+    const soonMade = await post("/api/family/traditions", { name: "Soon Pancake Day", date: soonDate, recur_type: "fixed" }, recLogin);
+    const soonBody = await soonMade.json();
+    const soonCal = await (await fetch(`${base}/calendar`, { headers: { cookie: recLogin } })).text();
+    check("calendar shows a Coming up strip for the next 30 days", soonMade.status === 201 && soonCal.includes("Coming up") && soonCal.includes("Soon Pancake Day") && /In [4-6] days/.test(soonCal));
+    check("Coming up offers Add to calendar", soonCal.includes(`/family/ics/${soonBody.id}.ics`));
+    const one = await fetch(`${base}/family/ics/${soonBody.id}.ics`, { headers: { cookie: recLogin } });
+    const oneText = await one.text();
+    const [, mm, dd] = soonDate.split("-").map(Number);
+    check(
+      "Add to calendar is a yearly .ics with week-before and day-before reminders",
+      one.ok && (one.headers.get("content-type") || "").includes("text/calendar") &&
+        oneText.startsWith("BEGIN:VCALENDAR\r\n") && oneText.includes(`RRULE:FREQ=YEARLY;BYMONTH=${mm};BYMONTHDAY=${dd}`) &&
+        (oneText.match(/BEGIN:VALARM/g) || []).length === 2 && oneText.includes("TRIGGER:-P6DT15H") && oneText.includes("TRIGGER:-PT15H") &&
+        oneText.split("\r\n").every((l) => Buffer.byteLength(l) <= 75),
+      oneText
+    );
+    const oneAnon = await fetch(`${base}/family/ics/${soonBody.id}.ics`);
+    check("Add to calendar file needs the family login", oneAnon.status === 401);
+    const otherFam = await fetch(`${base}/family/ics/${soonBody.id}.ics`, { headers: { cookie: newCookie } });
+    check("another family can't download it", otherFam.status === 401 || otherFam.status === 404);
+    const soonTradPage = await (await fetch(`${base}${soonBody.tradition_path}`, { headers: { cookie: recLogin } })).text();
+    check("tradition page has Add to calendar", soonTradPage.includes(`/family/ics/${soonBody.id}.ics`));
+
+    const homeAgain = await (await fetch(`${base}/`)).text();
+    check("home links to the example and to Forgot passcode", homeAgain.includes('href="/sample"') && homeAgain.includes("Forgot passcode?") && homeAgain.includes('id="family-recover-form"'));
+    const sample = await fetch(`${base}/sample`);
+    const sampleHtml = await sample.text();
+    check(
+      "sample calendar opens with no login, clearly labeled as an example",
+      sample.ok && sampleHtml.includes("The Example Family") && sampleHtml.includes("made-up family") &&
+        sampleHtml.includes('href="/#start"') && sampleHtml.includes("Start your own") && !sampleHtml.includes("/media/")
+    );
+    const sampleIcsRes = await fetch(`${base}/sample/kite-day.ics`);
+    const sampleIcsText = await sampleIcsRes.text();
+    check("sample Add to calendar file is a calendar", sampleIcsRes.ok && sampleIcsText.includes("RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU") && sampleIcsText.includes("BEGIN:VALARM"), sampleIcsRes.headers.get("content-type"));
+    const art = await fetch(`${base}/sample/art/kite-day.svg`);
+    const artText = await art.text();
+    check("sample pictures are tiny bundled drawings", art.ok && artText.startsWith("<svg") && artText.length < 2000);
+
     const lockerName = "Lockout Family";
     let lastLock;
     for (let i = 0; i < 5; i++) {

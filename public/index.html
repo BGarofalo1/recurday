@@ -44,10 +44,10 @@
     <h1>Creating family traditions.</h1>
     <p class="lead">It was always about the small things.</p>
     <p class="support">Not the big holidays. The ones your family makes your own.</p>
-    <p class="quiet-links"><a href="/ideas">Ideas</a></p>
+    <p class="quiet-links"><a href="/sample">See an example</a> · <a href="/ideas">Ideas</a></p>
     <p class="hint hidden" id="idea-pending"></p>
 
-    <div class="card">
+    <div class="card" id="start">
       <h2>Name your family</h2>
       <form id="family-create-form">
         <label for="create-family-name">Family name</label>
@@ -70,6 +70,26 @@
         <button class="btn" type="submit">Open our calendar</button>
         <p class="error hidden" id="family-login-error"></p>
       </form>
+      <details class="forgot" id="forgot">
+        <summary>Forgot passcode?</summary>
+        <p class="hint">Use the backup code you saved when you started.</p>
+        <form id="family-recover-form">
+          <label for="recover-family-name">Family name</label>
+          <input id="recover-family-name" name="name" type="text" required minlength="2" maxlength="40" autocomplete="username">
+          <label for="recover-code">Backup code</label>
+          <input id="recover-code" name="backup_code" type="text" required minlength="16" maxlength="24" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX">
+          <label for="recover-passcode">New passcode</label>
+          <input id="recover-passcode" name="new_passcode" type="password" required minlength="8" autocomplete="new-password">
+          <p class="hint">At least 8 characters. This signs out other phones.</p>
+          <button class="btn secondary" type="submit">Set a new passcode</button>
+          <p class="error hidden" id="family-recover-error"></p>
+        </form>
+      </details>
+    </div>
+
+    <div class="card hidden" id="backup-shown" tabindex="-1">
+      <h2>Save your backup code</h2>
+      <div class="backup-slot"></div>
     </div>
 
     <details class="more">

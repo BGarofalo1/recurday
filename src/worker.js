@@ -1,9 +1,10 @@
 import { mediaStore } from "./storage.js";
 import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf, TAGLINE, TAGLINE_SUPPORT } from "./http.js";
-import { hueOf, parseTiming, bindRule, describeRule } from "./calendar.js";
+import { hueOf, parseTiming, bindRule, describeRule, ruleFromRow } from "./calendar.js";
 import { sha256hex, randomToken, clientIp, parseCookie, SESSION_COOKIE } from "./auth.js";
 import { pageCacheKey, mediaCacheKey, edgeGet, edgePut } from "./edge.js";
-import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, canClaimRole } from "./family.js";
+import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, traditionIcs, canClaimRole } from "./family.js";
+import { samplePage } from "./sample.js";
 import { coverUrls } from "./cover.js";
 import { saveHouseholdToken, rotateHouseholdToken, familyLinkUrl } from "./links.js";
 import { IDEAS } from "./ideas.js";
@@ -75,11 +76,13 @@ async function handle(request, env) {
   if (path.startsWith("/f/")) return familyTraditionPage(request, env, url);
   if (path === "/calendar") return calendarPage(request, env, url);
   if (path === "/ideas") return ideasPage(request, env);
+  if (path === "/sample") return samplePage(request, env);
   if (path === "/privacy") return privacyPage(request, env);
   if (path === "/terms") return termsPage(request, env);
   if (path === "/about") return aboutPage(request, env);
   if (path.startsWith("/cal/")) return calendarFeed(request, env, url);
   if (path.startsWith("/family/export")) return familyExport(request, env, url);
+  if (path.startsWith("/family/ics/")) return traditionIcs(request, env, url);
 
   if ((path === "/" || path === "/index.html") && request.method === "GET" && await familyFromRequest(request, env)) {
     const idea = url.searchParams.get("idea");
@@ -891,6 +894,9 @@ function renderAppTradition(data, { selected, selectedDay, token, newHousehold, 
     : "";
   const addBtn = can_upload ? `<a class="btn secondary" href="#add-photos">Add photos</a>` : "";
   const yearsBtn = renderThroughTheYears(days, role, data.cover, tradition);
+  const icsBtn = role === "family" && ruleFromRow(tradition)
+    ? `<a class="btn secondary" href="/family/ics/${esc(tradition.id)}.ics">Add to calendar</a>`
+    : "";
   const selectedMedia = (selectedDay?.media || []).map(mediaItem).join("");
   const empty = selectedMedia
     ? `<div class="media-grid">${selectedMedia}</div>`
@@ -917,6 +923,7 @@ function renderAppTradition(data, { selected, selectedDay, token, newHousehold, 
       ${textBtn}
       ${addBtn}
       ${yearsBtn}
+      ${icsBtn}
     </div>
     ${yearChips(data, { selected, token })}
     ${empty}

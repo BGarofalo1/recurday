@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Recurday//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Leaf-Pile Day
+BEGIN:VEVENT
+UID:sample-leaf-pile@recurday
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20261114
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=2SA
+SUMMARY:Leaf-Pile Day
+DESCRIPTION:Second Saturday in November — Rake the biggest pile of the ye
+ ar. Then everyone jumps in. (An example from Recurday.)
+URL:https://recurday.bgarofalo1.workers.dev/sample
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Leaf-Pile Day is one week away
+TRIGGER:-P6DT15H
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Leaf-Pile Day is tomorrow
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

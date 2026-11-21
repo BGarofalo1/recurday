@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Recurday//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Pajama Pancake Breakfast
+BEGIN:VEVENT
+UID:sample-pajama-pancakes@recurday
+DTSTAMP:20260101T000000Z
+DTSTART;VALUE=DATE:20260117
+RRULE:FREQ=YEARLY;BYMONTH=1;BYDAY=3SA
+SUMMARY:Pajama Pancake Breakfast
+DESCRIPTION:Third Saturday in January — Nobody gets dressed. Whoever wake
+ s up last flips the first pancake. (An example from Recurday.)
+URL:https://recurday.bgarofalo1.workers.dev/sample
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Pajama Pancake Breakfast is one week away
+TRIGGER:-P6DT15H
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Pajama Pancake Breakfast is tomorrow
+TRIGGER:-PT15H
+END:VALARM
+END:VEVENT
+END:VCALENDAR
