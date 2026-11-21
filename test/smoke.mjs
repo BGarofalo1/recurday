@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import net from "node:net";
+import { localDate } from "../src/calendar.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const wrangler = path.join(root, "node_modules", ".bin", "wrangler");
@@ -925,11 +926,23 @@ async function main() {
     check("making a new backup code retires the old one", regenOld.status === 401);
     const recLogin = sessionCookieFrom(recNewPass);
 
-    const soonDate = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+    const nyToday = localDate("America/New_York");
+    const soonDate = new Date(Date.parse(`${nyToday}T12:00:00Z`) + 5 * 86400000).toISOString().slice(0, 10);
     const soonMade = await post("/api/family/traditions", { name: "Soon Pancake Day", date: soonDate, recur_type: "fixed" }, recLogin);
     const soonBody = await soonMade.json();
     const soonCal = await (await fetch(`${base}/calendar`, { headers: { cookie: recLogin } })).text();
-    check("calendar shows a Coming up strip for the next 30 days", soonMade.status === 201 && soonCal.includes("Coming up") && soonCal.includes("Soon Pancake Day") && /In [4-6] days/.test(soonCal));
+    check("calendar shows a Coming up strip for the next 30 days", soonMade.status === 201 && soonCal.includes("Coming up") && soonCal.includes("Soon Pancake Day") && soonCal.includes("In 5 days"), `ny=${nyToday}`);
+    const calIn = async (tz) => (await fetch(`${base}/calendar`, { headers: { cookie: `${recLogin}; recurday_tz=${encodeURIComponent(tz)}` } })).text();
+    const kiri = await calIn("Pacific/Kiritimati");
+    const pago = await calIn("Pacific/Pago_Pago");
+    const todayAttr = (h) => (h.match(/<body[^>]*data-today="([^"]+)"/) || [])[1];
+    const highlighted = (h) => (h.match(/class="cal-day today">\s*<a class="cal-num"[^>]*add=(\d{4}-\d{2}-\d{2})/) || [])[1];
+    check("calendar's today follows the phone's time zone (UTC+14)", todayAttr(kiri) === localDate("Pacific/Kiritimati") && highlighted(kiri) === localDate("Pacific/Kiritimati"), `${todayAttr(kiri)} ${highlighted(kiri)}`);
+    check("calendar's today follows the phone's time zone (UTC-11)", todayAttr(pago) === localDate("Pacific/Pago_Pago") && highlighted(pago) === localDate("Pacific/Pago_Pago") && todayAttr(kiri) !== todayAttr(pago), `${todayAttr(pago)} ${highlighted(pago)}`);
+    const nyCal = await (await fetch(`${base}/calendar`, { headers: { cookie: recLogin } })).text();
+    check("with no time zone cookie, today is New York's date", todayAttr(nyCal) === nyToday && /data-tz="America\/New_York"/.test(nyCal));
+    const badTz = await calIn("Nowhere/Fake");
+    check("a bad time zone cookie falls back to New York", todayAttr(badTz) === nyToday);
     check("Coming up offers Add to calendar", soonCal.includes(`/family/ics/${soonBody.id}.ics`));
     const one = await fetch(`${base}/family/ics/${soonBody.id}.ics`, { headers: { cookie: recLogin } });
     const oneText = await one.text();

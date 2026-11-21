@@ -1,5 +1,5 @@
 /* Recurday app shell only. Never cache family photos or tradition pages. */
-const CACHE = "recurday-shell-v15";
+const CACHE = "recurday-shell-v16";
 // Every file here is a static asset, so installing the worker never counts
 // toward the Worker's daily request limit. "/" is cached when visited.
 const SHELL = [

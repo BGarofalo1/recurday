@@ -41,6 +41,8 @@ import {
   singleIcs,
   daysBetween,
   whenWords,
+  todayFor,
+  timeZoneFrom,
 } from "./calendar.js";
 import { ZipBuilder, slugPart } from "./zip.js";
 import { json, html, esc, pageShell, familyNav, nowIso, clip, originOf, isSecureRequest, SECURITY } from "./http.js";
@@ -609,13 +611,15 @@ export async function calendarPage(request, env, url) {
     const location = idea ? `/?idea=${encodeURIComponent(idea)}` : "/";
     return new Response(null, { status: 303, headers: { ...SECURITY, location } });
   }
-  const now = new Date();
-  const today = url.searchParams.get("on") || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const localToday = todayFor(request);
+  const onParam = url.searchParams.get("on") || "";
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(onParam) ? onParam : localToday;
+  const [todayYear, todayMonth] = today.split("-").map(Number);
   const idea = ideaBySlug(url.searchParams.get("idea") || "");
   let add = url.searchParams.get("add") || "";
   if (idea && !add) add = nextIdeaDate(idea, today);
-  let year = Number(url.searchParams.get("year")) || now.getFullYear();
-  let month = Number(url.searchParams.get("month")) || now.getMonth() + 1;
+  let year = Number(url.searchParams.get("year")) || todayYear;
+  let month = Number(url.searchParams.get("month")) || todayMonth;
   if (idea && add && !url.searchParams.get("year") && !url.searchParams.get("month")) {
     const parts = add.split("-").map(Number);
     if (parts.length === 3 && parts[0] && parts[1]) {
@@ -623,8 +627,8 @@ export async function calendarPage(request, env, url) {
       month = parts[1];
     }
   }
-  const safeYear = year >= 1900 && year <= 2100 ? year : now.getFullYear();
-  const safeMonth = month >= 1 && month <= 12 ? month : now.getMonth() + 1;
+  const safeYear = year >= 1900 && year <= 2100 ? year : todayYear;
+  const safeMonth = month >= 1 && month <= 12 ? month : todayMonth;
   const traditions = await loadFamilyTraditions(env, family.id);
   const origin = originOf(request);
   const cells = monthGrid(safeYear, safeMonth).map((cell) => {
@@ -761,6 +765,7 @@ export async function calendarPage(request, env, url) {
     </details>`;
 
   return html(pageShell({
+    bodyData: { today, tz: timeZoneFrom(request.headers.get("cookie")) },
     title: `${family.name} — Recurday`,
     description: "Your family's traditions, month by month.",
     ogTitle: "Recurday",
@@ -848,7 +853,7 @@ export async function calendarFeed(request, env, url) {
   const family = await env.DB.prepare("SELECT * FROM families WHERE calendar_token_hash = ?").bind(hash).first();
   if (!family) return new Response("Not found", { status: 404, headers: SECURITY });
   const traditions = await loadFamilyTraditions(env, family.id);
-  const year = new Date().getUTCFullYear();
+  const year = Number(todayFor(request).slice(0, 4));
   const events = traditions.map((t) => {
     const rule = ruleFromRow(t);
     if (!rule) return null;
@@ -876,8 +881,7 @@ export async function traditionIcs(request, env, url) {
   const t = id ? await env.DB.prepare("SELECT * FROM traditions WHERE id = ? AND family_id = ?").bind(id, family.id).first() : null;
   const rule = t ? ruleFromRow(t) : null;
   if (!rule) return new Response("Not found", { status: 404, headers: SECURITY });
-  const now = new Date();
-  const today = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+  const today = todayFor(request);
   const body = singleIcs({
     id: t.id, name: t.name, rule, timing: t.timing_note, practice: t.practice_note,
     fromIso: today, url: `${originOf(request)}/f/${t.id}`,

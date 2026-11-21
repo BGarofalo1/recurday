@@ -27,10 +27,12 @@ function cacheStore() {
   }
 }
 
-export async function pageCacheKey(origin, auth, url) {
+export async function pageCacheKey(origin, auth, url, localDay = "") {
   const t = auth.tradition;
   const share = auth.share;
-  const day = new Date().toISOString().slice(0, 10);
+  // The visitor's local date (their time zone), so "this year" turns over at
+  // their midnight, not London's.
+  const day = localDay || new Date().toISOString().slice(0, 10);
   const shareBits = share ? `${share.id}.${share.accepted_at ? 1 : 0}.${share.years_policy || "all"}` : "-";
   const tokenHash = await sha256hex(`page:${auth.token}`);
   const q = new URLSearchParams();

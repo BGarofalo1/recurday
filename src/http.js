@@ -58,7 +58,8 @@ export function shareMeta({ ogTitle, ogDescription, origin }) {
   <meta name="twitter:image:alt" content="${esc(OG_IMAGE_ALT)}">`;
 }
 
-export function pageShell({ title, description, ogTitle, ogDescription, origin, body, hue, nav = "", brandHero = false }) {
+export function pageShell({ title, description, ogTitle, ogDescription, origin, body, hue, nav = "", brandHero = false, bodyData = null }) {
+  const dataAttrs = bodyData ? Object.entries(bodyData).map(([k, v]) => ` data-${k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())}="${esc(v)}"`).join("") : "";
   const wrapClass = ["wrap", hue ? `hue-${esc(hue)}` : "", brandHero ? "brand-hero" : ""].filter(Boolean).join(" ");
   return `<!doctype html>
 <html lang="en">
@@ -83,7 +84,7 @@ export function pageShell({ title, description, ogTitle, ogDescription, origin, 
   <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
+<body${dataAttrs}>
   <a class="skip-link" href="#content">Skip to content</a>
   <div class="${wrapClass}" id="content">
     <header class="top">

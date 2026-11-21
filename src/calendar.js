@@ -318,11 +318,51 @@ export function whenWords(days) {
 
 /** One tradition as a downloadable .ics, repeating yearly, with reminders. */
 export function singleIcs({ id, name, rule, timing, practice, fromIso, url }) {
-  const from = parseIsoDate(fromIso) || parseIsoDate(new Date().toISOString().slice(0, 10));
+  const from = parseIsoDate(fromIso) || parseIsoDate(localDate(DEFAULT_TZ));
   const dtstart = occurDate(rule, from.year) || occurDate(rule, from.year + 1) || occurDate(rule, from.year + 4);
   if (!dtstart) return null;
   return buildIcs({
     familyName: name,
     events: [{ id, name, rule, dtstart, timing, practice, url, alarms: reminderAlarms(name) }],
   });
+}
+
+// "Today" in the family's own time zone. The phone tells us its time zone in
+// a small cookie (recurday_tz, set by app.js); without it we use New York.
+// Pure Intl, no Cloudflare APIs, so it runs the same in tests.
+export const DEFAULT_TZ = "America/New_York";
+export const TZ_COOKIE = "recurday_tz";
+
+export function validTimeZone(tz) {
+  const s = String(tz || "");
+  if (!s || s.length > 64 || !/^[A-Za-z0-9_+\-\/]+$/.test(s)) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: s });
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+export function timeZoneFrom(cookieHeader) {
+  const m = String(cookieHeader || "").match(/(?:^|;\s*)recurday_tz=([^;]*)/);
+  if (!m) return DEFAULT_TZ;
+  let raw = m[1];
+  try { raw = decodeURIComponent(raw); } catch {}
+  return validTimeZone(raw) || DEFAULT_TZ;
+}
+
+/** YYYY-MM-DD for an instant in a time zone. */
+export function localDate(timeZone, nowMs = Date.now()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: validTimeZone(timeZone) || DEFAULT_TZ, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(nowMs));
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** Today for this request: the visitor's time zone, else New York. */
+export function todayFor(request, nowMs = Date.now()) {
+  const header = request?.headers?.get ? request.headers.get("cookie") : "";
+  return localDate(timeZoneFrom(header), nowMs);
 }

@@ -1,6 +1,6 @@
 import { mediaStore } from "./storage.js";
 import { SECURITY, json, html, esc, pageShell, familyNav, nowIso, clip, originOf, TAGLINE, TAGLINE_SUPPORT } from "./http.js";
-import { hueOf, parseTiming, bindRule, describeRule, ruleFromRow } from "./calendar.js";
+import { hueOf, parseTiming, bindRule, describeRule, ruleFromRow, todayFor } from "./calendar.js";
 import { sha256hex, randomToken, clientIp, parseCookie, SESSION_COOKIE } from "./auth.js";
 import { pageCacheKey, mediaCacheKey, edgeGet, edgePut } from "./edge.js";
 import { familyFromRequest, handleFamilyApi, calendarPage, calendarFeed, familyExport, traditionIcs, canClaimRole } from "./family.js";
@@ -664,7 +664,7 @@ async function traditionPage(request, env, url, expectedRole) {
     (auth.role === "household" || auth.role === "share");
   let key = "";
   if (cacheable) {
-    key = await pageCacheKey(originOf(request), auth, url);
+    key = await pageCacheKey(originOf(request), auth, url, todayFor(request));
     const hit = await edgeGet(key);
     if (hit) return linkPageResponse(hit.body, hit.status, hit.headers, "hit");
   }
@@ -719,7 +719,8 @@ async function renderTraditionResponse(request, env, auth, url, { newHousehold, 
     data.family_link_url = `${origin}/t/${token}`;
   }
   const years = data.days.map((d) => d.year);
-  const currentYear = new Date().getFullYear();
+  const currentYear = Number(todayFor(request).slice(0, 4));
+  data.currentYear = currentYear;
   let selected = yearOk(yearParam) ? yearParam : (years[0] || currentYear);
   if (!years.includes(selected) && years.length && auth.role === "share") selected = years[0];
   const selectedDay = data.days.find((d) => d.year === selected);
@@ -781,7 +782,7 @@ function coverHero(data) {
 function yearChips(data, { selected, token }) {
   const { tradition, role, can_upload, days } = data;
   const yearSet = new Set(days.map((d) => d.year));
-  const currentYear = new Date().getFullYear();
+  const currentYear = data.currentYear || new Date().getFullYear();
   if (can_upload) {
     yearSet.add(selected);
     yearSet.add(currentYear);

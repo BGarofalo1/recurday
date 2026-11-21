@@ -4,6 +4,28 @@ const PHOTO_THUMB = 256;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
+// Tell Recurday this phone's time zone, so "today", "Coming up", and the
+// calendar's highlighted day match the family's own clock. Only the zone name
+// (like America/Chicago) is sent; nothing else.
+(function syncTimeZone() {
+  let tz = "";
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch {}
+  if (!tz) return;
+  const want = `recurday_tz=${encodeURIComponent(tz)}`;
+  if (!document.cookie.split("; ").includes(want)) {
+    document.cookie = `${want}; path=/; max-age=31536000; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
+  }
+  // The calendar was drawn for another zone (first visit, or travel): redraw once.
+  const page = document.body?.dataset || {};
+  if (page.tz && page.tz !== tz && !new URLSearchParams(location.search).has("on")) {
+    try {
+      if (sessionStorage.getItem("recurday-tz-reload") === tz) return;
+      sessionStorage.setItem("recurday-tz-reload", tz);
+    } catch { return; }
+    location.reload();
+  }
+})();
+
 async function shrinkImageTo(file, edge, quality) {
   if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
   let bitmap;
